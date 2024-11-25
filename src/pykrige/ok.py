@@ -214,6 +214,8 @@ class OrdinaryKriging:
             torch.cuda.empty_cache()
             current_gpu = torch.cuda.current_device()
             print(f"GPU name : {torch.cuda.get_device_name(current_gpu)}")
+            result = self.get_gpu_memory()
+            print("start constructor GPU memory: ", result / 1024)
         self.device = device
         # config the pseudo inverse
         self.pseudo_inv = bool(pseudo_inv)
@@ -398,6 +400,8 @@ class OrdinaryKriging:
                 print("cR =", self.cR, "\n")
         else:
             self.delta, self.sigma, self.epsilon, self.Q1, self.Q2, self.cR = [None] * 6
+        result = self.get_gpu_memory()
+        print("end constructor GPU memory: ", result / 1024)
 
     def update_variogram_model(
         self,
@@ -857,6 +861,8 @@ class OrdinaryKriging:
             set of points. If style was specified as 'masked', sigmasq
             will be a numpy masked array.
         """
+        result = self.get_gpu_memory()
+        print("start prediction GPU memory: ", result / 1024)
         if self.verbose:
             print("Executing Ordinary Kriging...\n")
 
@@ -1048,6 +1054,8 @@ class OrdinaryKriging:
             zvalues = zvalues.reshape((ny, nx))
             sigmasq = sigmasq.reshape((ny, nx))
         torch.cuda.empty_cache()
+        result = self.get_gpu_memory()
+        print("end prediction GPU memory: ", result / 1024)
         return zvalues, sigmasq
 
     def get_device_info(xself):
@@ -1057,3 +1065,12 @@ class OrdinaryKriging:
         if is_cuda_available:
             current_gpu = torch.cuda.current_device()
         return device, current_gpu
+
+    import subprocess
+
+    def get_gpu_memory(self):
+        result = subprocess.check_output(
+            ['nvidia-smi', '--query-gpu=memory.used', '--format=csv,nounits,noheader']
+        )
+        return int(result.decode().strip())
+
