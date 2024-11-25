@@ -28,6 +28,7 @@ import numpy as np
 import scipy.linalg
 import torch
 from scipy.spatial.distance import cdist
+import subprocess
 
 from . import core, variogram_models
 from .compat_gstools import validate_gstools
@@ -1066,7 +1067,6 @@ class OrdinaryKriging:
             current_gpu = torch.cuda.current_device()
         return device, current_gpu
 
-    import subprocess
 
     def get_gpu_memory(self):
         result = subprocess.check_output(
