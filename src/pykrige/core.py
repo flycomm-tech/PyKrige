@@ -489,8 +489,9 @@ def _initialize_variogram_model(
     non_nan_mask = ~torch.isnan(semivariance)
     lags = lags[non_nan_mask]
     semivariance = semivariance[non_nan_mask]
-    result = get_gpu_memory()
-    print("GPU memory usage after:", result/1024)
+    result2 = get_gpu_memory()
+    print("GPU memory usage after:", result2/1024)
+    print("difference GPU: ", ((result2/1024) - (result/1024)))
 
     # indices = torch.bucketize(d, bins)
     # valid = (indices > 0) & (indices < len(bins))
