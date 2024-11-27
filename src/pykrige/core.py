@@ -498,7 +498,7 @@ def _initialize_variogram_model(
     # print("difference GPU: ", ((result2/1024) - (result/1024)))
 
     # solution 2
-    batch_size = 30000000  # 30M
+    batch_size = 35000000  # 35M
     result = get_gpu_memory()
 
     print("GPU memory usage before:", result / 1024)
@@ -538,6 +538,9 @@ def _initialize_variogram_model(
 
     non_nan_mask = ~torch.isnan(semivariance)
     result2 = get_gpu_memory()
+
+    lags = lags[non_nan_mask]
+    semivariance = semivariance[non_nan_mask]
     print("GPU memory usage after:", result2/1024)
     print("difference GPU: ", ((result2/1024) - (result/1024)))
 
