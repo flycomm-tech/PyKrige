@@ -482,9 +482,9 @@ def _initialize_variogram_model(
     result = get_gpu_memory()
     print("GPU memory usage before:", result / 1024)
     print("len d", len(d))
-    print("len(bins)", len(bins))
+    print("shape bins", bins.shape)
     mask = (d.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d.unsqueeze(0) < bins[1:].unsqueeze(1))
-    print("len mask", len(mask))
+    print("mask", mask.shape)
     lags = torch.where(mask.sum(1) > 0, (d.unsqueeze(0) * mask).sum(1) / mask.sum(1),
                        torch.tensor(float('nan'), device=device))
     semivariance = torch.where(mask.sum(1) > 0, (g.unsqueeze(0) * mask).sum(1) / mask.sum(1),
