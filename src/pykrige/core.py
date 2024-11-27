@@ -498,11 +498,13 @@ def _initialize_variogram_model(
     # print("difference GPU: ", ((result2/1024) - (result/1024)))
 
     # solution 2
-    batch_size = 20000000
+    batch_size = 30000000  # 30M
     result = get_gpu_memory()
-    print("GPU memory usage before:", result / 1024)
-    num_batches = (d.size(0) + batch_size - 1) // batch_size
 
+    print("GPU memory usage before:", result / 1024)
+    print("len d", len(d))
+    num_batches = (d.size(0) + batch_size - 1) // batch_size
+    print("num batches ", num_batches)
     lags_numerators = torch.zeros(bins.size(0) - 1, device=device)
     lags_denominators = torch.zeros(bins.size(0) - 1, device=device)
 
