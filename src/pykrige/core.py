@@ -479,23 +479,69 @@ def _initialize_variogram_model(
     # are supplied, they have been supplied as expected...
     # if variogram_model_parameters was not defined, then estimate the variogram
 
+    # solution 1
+    # result = get_gpu_memory()
+    # print("GPU memory usage before:", result / 1024)
+    # print("len d", len(d))
+    # print("shape bins", bins.shape)
+    # mask = (d.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d.unsqueeze(0) < bins[1:].unsqueeze(1))
+    # print("mask", mask.shape)
+    # lags = torch.where(mask.sum(1) > 0, (d.unsqueeze(0) * mask).sum(1) / mask.sum(1),
+    #                    torch.tensor(float('nan'), device=device))
+    # semivariance = torch.where(mask.sum(1) > 0, (g.unsqueeze(0) * mask).sum(1) / mask.sum(1),
+    #                            torch.tensor(float('nan'), device=device))
+    # non_nan_mask = ~torch.isnan(semivariance)
+    # lags = lags[non_nan_mask]
+    # semivariance = semivariance[non_nan_mask]
+    # result2 = get_gpu_memory()
+    # print("GPU memory usage after:", result2/1024)
+    # print("difference GPU: ", ((result2/1024) - (result/1024)))
+
+    # solution 2
+    batch_size = 20000000
     result = get_gpu_memory()
     print("GPU memory usage before:", result / 1024)
-    print("len d", len(d))
-    print("shape bins", bins.shape)
-    mask = (d.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d.unsqueeze(0) < bins[1:].unsqueeze(1))
-    print("mask", mask.shape)
-    lags = torch.where(mask.sum(1) > 0, (d.unsqueeze(0) * mask).sum(1) / mask.sum(1),
-                       torch.tensor(float('nan'), device=device))
-    semivariance = torch.where(mask.sum(1) > 0, (g.unsqueeze(0) * mask).sum(1) / mask.sum(1),
-                               torch.tensor(float('nan'), device=device))
+    num_batches = (d.size(0) + batch_size - 1) // batch_size
+
+    lags_numerators = torch.zeros(bins.size(0) - 1, device=device)
+    lags_denominators = torch.zeros(bins.size(0) - 1, device=device)
+
+    semivariance_numerators = torch.zeros(bins.size(0) - 1, device=device)
+    semivariance_denominators = torch.zeros(bins.size(0) - 1, device=device)
+
+    for i in range(num_batches):
+        d_batch = d[i * batch_size: (i + 1) * batch_size]
+        g_batch = g[i * batch_size: (i + 1) * batch_size]
+
+        d_batch = d_batch.to(device)
+        g_batch = g_batch.to(device)
+
+        mask = (d_batch.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d_batch.unsqueeze(0) < bins[1:].unsqueeze(1))
+        mask_float = mask.float()
+        lags_numerators += (d_batch.unsqueeze(0) * mask_float).sum(dim=1)
+        lags_denominators += mask_float.sum(dim=1)
+        semivariance_numerators += (g_batch.unsqueeze(0) * mask_float).sum(dim=1)
+        semivariance_denominators += mask_float.sum(dim=1)
+        del d_batch, g_batch, mask, mask_float
+        torch.cuda.empty_cache()  # Vide le cache GPU
+
+    lags = torch.full_like(lags_numerators, float('nan'), device=device)
+    valid_lags = lags_denominators > 0
+    lags[valid_lags] = lags_numerators[valid_lags] / lags_denominators[valid_lags]
+
+    semivariance = torch.full_like(semivariance_numerators, float('nan'), device=device)
+    valid_semivariance = semivariance_denominators > 0
+    semivariance[valid_semivariance] = semivariance_numerators[valid_semivariance] / semivariance_denominators[
+        valid_semivariance]
+
     non_nan_mask = ~torch.isnan(semivariance)
-    lags = lags[non_nan_mask]
-    semivariance = semivariance[non_nan_mask]
     result2 = get_gpu_memory()
     print("GPU memory usage after:", result2/1024)
     print("difference GPU: ", ((result2/1024) - (result/1024)))
 
+
+
+    # slution 3
     # indices = torch.bucketize(d, bins)
     # valid = (indices > 0) & (indices < len(bins))
     # indices_valid = indices[valid]
