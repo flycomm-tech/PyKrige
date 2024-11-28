@@ -891,8 +891,8 @@ class OrdinaryKriging:
         # ypts = np.atleast_1d(np.squeeze(np.array(ypoints, copy=True)))
         # n = self.X_ADJUSTED.shape[0]
         n = self.X_ADJUSTED.size(0)
-        nx = xpts.size
-        ny = ypts.size
+        nx = xpts.size(0)
+        ny = ypts.size(0)
         a = self._get_kriging_matrix(n)
         if style in ["grid", "masked"]:
             if style == "masked":
@@ -914,7 +914,7 @@ class OrdinaryKriging:
             ypts = grid_y.flatten()
 
         elif style == "points":
-            if xpts.numel() != ypts.numel():  # .size
+            if xpts.size(0) != ypts.size(0):  # .size
                 raise ValueError(
                     "xpoints and ypoints must have "
                     "same dimensions when treated as "
