@@ -191,8 +191,7 @@ def _adjust_for_anisotropy(X, center, scaling, angle, device):
 
     X_adj += center
 
-    return X_adj.cpu().numpy()
-
+    return X_adj
 
 def _make_variogram_parameter_list(variogram_model, variogram_model_parameters):
     """Converts the user input for the variogram model parameters into the
@@ -498,7 +497,7 @@ def _initialize_variogram_model(
     # print("difference GPU: ", ((result2/1024) - (result/1024)))
 
     # solution 2
-    batch_size = 10000000  # 10M
+    batch_size = 30000000  # 30M
     result = get_gpu_memory()
 
     print("GPU memory usage before:", result / 1024)

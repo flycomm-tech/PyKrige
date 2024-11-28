@@ -273,6 +273,7 @@ class OrdinaryKriging:
         # problems with referencing the original passed arguments.
         # Also, values are forced to be float... in the future, might be worth
         # developing complex-number kriging (useful for vector field kriging)
+        start_time = time()
         self.X_ORIG = np.atleast_1d(
             np.squeeze(np.array(x, copy=True, dtype=np.float64))
         )
@@ -284,6 +285,7 @@ class OrdinaryKriging:
         if z.dim() == 0:
             z = z.unsqueeze(0)
         self.Z = z
+        print("time to execute X_ORIG, Y_ORIG", time() - start_time)
 
         self.verbose = verbose
         self.enable_plotting = enable_plotting
@@ -293,6 +295,7 @@ class OrdinaryKriging:
         # adjust for anisotropy... only implemented for euclidean (rectangular)
         # coordinates, as anisotropy is ambiguous for geographic coordinates...
         if self.coordinates_type == "euclidean":
+            start_time = time()
             self.XCENTER = (np.amax(self.X_ORIG) + np.amin(self.X_ORIG)) / 2.0
             self.YCENTER = (np.amax(self.Y_ORIG) + np.amin(self.Y_ORIG)) / 2.0
             self.anisotropy_scaling = anisotropy_scaling
@@ -306,6 +309,7 @@ class OrdinaryKriging:
                 [self.anisotropy_angle],
                 self.device
             ).T
+            print("time to execute X_ADJUSTED, Y_ADJUSTED and anisotropy", time() - start_time)
         elif self.coordinates_type == "geographic":
             # Leave everything as is in geographic case.
             # May be open to discussion?
