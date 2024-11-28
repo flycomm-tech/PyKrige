@@ -885,8 +885,8 @@ class OrdinaryKriging:
             # later in the code.
             raise ValueError("n_closest_points has to be at least two!")
 
-        xpts = torch.tensor(xpoints).to(self.device).clone().squeeze()
-        ypts = torch.tensor(ypoints).to(self.device).clone().squeeze()
+        xpts = torch.tensor(xpoints.values).to(self.device).clone().squeeze()
+        ypts = torch.tensor(ypoints.values).to(self.device).clone().squeeze()
         # xpts = np.atleast_1d(np.squeeze(np.array(xpoints, copy=True)))
         # ypts = np.atleast_1d(np.squeeze(np.array(ypoints, copy=True)))
         # n = self.X_ADJUSTED.shape[0]
