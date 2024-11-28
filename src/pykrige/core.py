@@ -498,7 +498,7 @@ def _initialize_variogram_model(
     # print("difference GPU: ", ((result2/1024) - (result/1024)))
 
     # solution 2
-    batch_size = 40000000  # 30M
+    batch_size = 10000000  # 10M
     result = get_gpu_memory()
 
     print("GPU memory usage before:", result / 1024)
@@ -512,6 +512,8 @@ def _initialize_variogram_model(
     semivariance_denominators = torch.zeros(bins.size(0) - 1, device=device)
 
     for i in range(num_batches):
+        print("batch ", i)
+        start_time = time()
         d_batch = d[i * batch_size: (i + 1) * batch_size]
         g_batch = g[i * batch_size: (i + 1) * batch_size]
 
@@ -526,6 +528,7 @@ def _initialize_variogram_model(
         semivariance_denominators += mask_float.sum(dim=1)
         del d_batch, g_batch, mask, mask_float
         torch.cuda.empty_cache()  # Vide le cache GPU
+        print("end batch ", i, time() - start_time)
 
     lags = torch.full_like(lags_numerators, float('nan'), device=device)
     valid_lags = lags_denominators > 0
