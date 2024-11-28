@@ -688,8 +688,10 @@ class OrdinaryKriging:
     def _exec_vector(self, a, bd, mask):
         """Solves the kriging system as a vectorized operation. This method
         can take a lot of memory for large grids and/or large datasets."""
-        npt = bd.shape[0]
-        n = self.X_ADJUSTED.shape[0]
+        # npt = bd.shape[0]
+        npt = bd.size(0)
+        # n = self.X_ADJUSTED.shape[0]
+        n = self.X_ADJUSTED.size(0)
         zero_index = None
         zero_value = False
 
@@ -883,9 +885,12 @@ class OrdinaryKriging:
             # later in the code.
             raise ValueError("n_closest_points has to be at least two!")
 
-        xpts = np.atleast_1d(np.squeeze(np.array(xpoints, copy=True)))
-        ypts = np.atleast_1d(np.squeeze(np.array(ypoints, copy=True)))
-        n = self.X_ADJUSTED.shape[0]
+        xpts = torch.tensor(xpoints).to(self.device).clone().squeeze()
+        ypts = torch.tensor(ypoints).to(self.device).clone().squeeze()
+        # xpts = np.atleast_1d(np.squeeze(np.array(xpoints, copy=True)))
+        # ypts = np.atleast_1d(np.squeeze(np.array(ypoints, copy=True)))
+        # n = self.X_ADJUSTED.shape[0]
+        n = self.X_ADJUSTED.size(0)
         nx = xpts.size
         ny = ypts.size
         a = self._get_kriging_matrix(n)
@@ -921,19 +926,26 @@ class OrdinaryKriging:
 
         if self.coordinates_type == "euclidean":
             xpts, ypts = _adjust_for_anisotropy(
-                np.vstack((xpts, ypts)).T,
+                torch.stack((xpts, ypts), dim=1),  # np.vstack((xpts, ypts)).T,
                 [self.XCENTER, self.YCENTER],
                 [self.anisotropy_scaling],
                 [self.anisotropy_angle],
                 self.device
             ).T
+            xy_data = torch.cat(
+                (self.X_ADJUSTED.unsqueeze(1), self.Y_ADJUSTED.unsqueeze(1)), dim=1
+            )
+            xy_points = torch.cat(
+                (xpts.unsqueeze(1), ypts.unsqueeze(1)), dim=1
+            )
             # Prepare for cdist:
-            xy_data = np.concatenate(
-                (self.X_ADJUSTED[:, np.newaxis], self.Y_ADJUSTED[:, np.newaxis]), axis=1
-            )
-            xy_points = np.concatenate(
-                (xpts[:, np.newaxis], ypts[:, np.newaxis]), axis=1
-            )
+            # xy_data = np.concatenate(
+            #     (self.X_ADJUSTED[:, np.newaxis], self.Y_ADJUSTED[:, np.newaxis]), axis=1
+            # )
+            # xy_points = np.concatenate(
+            #     (xpts[:, np.newaxis], ypts[:, np.newaxis]), axis=1
+            # )
+
         elif self.coordinates_type == "geographic":
             # In spherical coordinates, we do not correct for anisotropy.
             # Also, we don't use scipy.spatial.cdist, so we do not have to
@@ -941,7 +953,8 @@ class OrdinaryKriging:
             pass
 
         if style != "masked":
-            mask = np.zeros(npt, dtype="bool")
+            mask = torch.zeros(npt, dtype=torch.bool, device=self.device)
+            # mask = np.zeros(npt, dtype="bool")
 
         c_pars = None
         if backend == "C":
@@ -1030,7 +1043,8 @@ class OrdinaryKriging:
                 )
         else:
             if self.coordinates_type == "euclidean":
-                bd = cdist(xy_points, xy_data, "euclidean")
+                bd = torch.cdist(xy_points, xy_data, p=2)
+                # bd = cdist(xy_points, xy_data, "euclidean")
             elif self.coordinates_type == "geographic":
                 bd = core.great_circle_distance(
                     xpts[:, np.newaxis],
