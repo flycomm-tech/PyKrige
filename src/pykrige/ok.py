@@ -914,7 +914,7 @@ class OrdinaryKriging:
             ypts = grid_y.flatten()
 
         elif style == "points":
-            if xpts.size != ypts.size:
+            if xpts.numel() != ypts.numel():  # .size
                 raise ValueError(
                     "xpoints and ypoints must have "
                     "same dimensions when treated as "
