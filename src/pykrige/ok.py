@@ -714,8 +714,7 @@ class OrdinaryKriging:
         b[:, n, 0] = 1.0
 
         if (~mask).any():
-            # torch,from_numpy(mask)
-            mask_torch = torch.repeat_interleave(mask.unsqueeze(1).unsqueeze(1), n + 1, dim=1).to(self.device)
+            mask_torch = torch.repeat_interleave(torch.from_numpy(mask).unsqueeze(1).unsqueeze(1), n + 1, dim=1).to(self.device)
             b = torch.masked_fill(b, mask_torch, value=torch.tensor(float('nan'))).to(self.device)
 
         x = torch.matmul(a_inv, b.reshape((npt, n + 1)).T).reshape((1, n + 1, npt)).transpose(0, 2)
@@ -892,8 +891,8 @@ class OrdinaryKriging:
         # ypts = np.atleast_1d(np.squeeze(np.array(ypoints, copy=True)))
         # n = self.X_ADJUSTED.shape[0]
         n = self.X_ADJUSTED.size(0)
-        nx = xpts.size(0)
-        ny = ypts.size(0)
+        nx = xpts.numel()
+        ny = ypts.numel()
         a = self._get_kriging_matrix(n)
         if style in ["grid", "masked"]:
             if style == "masked":
