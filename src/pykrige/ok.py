@@ -343,7 +343,7 @@ class OrdinaryKriging:
                 self.semivariance,
                 self.variogram_model_parameters,
             ) = _initialize_variogram_model(
-                np.vstack((self.X_ADJUSTED, self.Y_ADJUSTED)).T,
+                torch.stack((X_ADJUSTED, Y_ADJUSTED), dim=1),  # np.vstack((self.X_ADJUSTED, self.Y_ADJUSTED)).T,
                 self.Z,
                 self.variogram_model,
                 vp_temp,
