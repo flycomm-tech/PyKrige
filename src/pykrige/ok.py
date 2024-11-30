@@ -701,7 +701,7 @@ class OrdinaryKriging:
         else:
             a_inv = torch.inverse(a.to(device=self.device, dtype=torch.float32))
 
-        # bd = torch.tensor(bd, dtype=torch.float32).to(self.device)
+        bd = torch.tensor(bd, dtype=torch.float32).to(self.device)
         if torch.any(torch.abs(bd) <= self.eps):
             zero_value = True
             zero_index = torch.where(torch.abs(bd) <= self.eps)
@@ -914,7 +914,7 @@ class OrdinaryKriging:
             ypts = grid_y.flatten()
 
         elif style == "points":
-            if xpts.size(0) != ypts.size(0):  # .size
+            if xpts.numel() != ypts.numel():  # .size
                 raise ValueError(
                     "xpoints and ypoints must have "
                     "same dimensions when treated as "

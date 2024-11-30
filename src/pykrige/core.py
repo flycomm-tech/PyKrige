@@ -492,8 +492,6 @@ def _initialize_variogram_model(
     non_nan_mask = ~torch.isnan(semivariance)
     lags = lags[non_nan_mask]
     semivariance = semivariance[non_nan_mask]
-    print("lags1", lags)
-    print("semivariance1", semivariance)
     # result2 = get_gpu_memory()
     # print("GPU memory usage after:", result2/1024)
     # print("difference GPU: ", ((result2/1024) - (result/1024)))
@@ -545,8 +543,6 @@ def _initialize_variogram_model(
 
     lags = lags[non_nan_mask]
     semivariance = semivariance[non_nan_mask]
-    print("lags2", lags)
-    print("semivariance2", semivariance)
     print("GPU memory usage after:", result2/1024)
     print("difference GPU: ", ((result2/1024) - (result/1024)))
 
