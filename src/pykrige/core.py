@@ -483,15 +483,17 @@ def _initialize_variogram_model(
     # print("GPU memory usage before:", result / 1024)
     # print("len d", len(d))
     # print("shape bins", bins.shape)
-    # mask = (d.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d.unsqueeze(0) < bins[1:].unsqueeze(1))
-    # print("mask", mask.shape)
-    # lags = torch.where(mask.sum(1) > 0, (d.unsqueeze(0) * mask).sum(1) / mask.sum(1),
-    #                    torch.tensor(float('nan'), device=device))
-    # semivariance = torch.where(mask.sum(1) > 0, (g.unsqueeze(0) * mask).sum(1) / mask.sum(1),
-    #                            torch.tensor(float('nan'), device=device))
-    # non_nan_mask = ~torch.isnan(semivariance)
-    # lags = lags[non_nan_mask]
-    # semivariance = semivariance[non_nan_mask]
+    mask = (d.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d.unsqueeze(0) < bins[1:].unsqueeze(1))
+    print("mask", mask.shape)
+    lags = torch.where(mask.sum(1) > 0, (d.unsqueeze(0) * mask).sum(1) / mask.sum(1),
+                       torch.tensor(float('nan'), device=device))
+    semivariance = torch.where(mask.sum(1) > 0, (g.unsqueeze(0) * mask).sum(1) / mask.sum(1),
+                               torch.tensor(float('nan'), device=device))
+    non_nan_mask = ~torch.isnan(semivariance)
+    lags = lags[non_nan_mask]
+    semivariance = semivariance[non_nan_mask]
+    print("lags1", lags)
+    print("semivariance1", semivariance)
     # result2 = get_gpu_memory()
     # print("GPU memory usage after:", result2/1024)
     # print("difference GPU: ", ((result2/1024) - (result/1024)))
@@ -543,6 +545,8 @@ def _initialize_variogram_model(
 
     lags = lags[non_nan_mask]
     semivariance = semivariance[non_nan_mask]
+    print("lags2", lags)
+    print("semivariance2", semivariance)
     print("GPU memory usage after:", result2/1024)
     print("difference GPU: ", ((result2/1024) - (result/1024)))
 
