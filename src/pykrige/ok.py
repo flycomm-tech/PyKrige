@@ -676,7 +676,9 @@ class OrdinaryKriging:
         """Solves the kriging system as a vectorized operation. This method
         can take a lot of memory for large grids and/or large datasets."""
         npt = bd.shape[0]
+        print("npt int: ", npt)
         n = self.X_ADJUSTED.shape[0]
+        print("n int: ", n)
         zero_index = None
         zero_value = False
 
@@ -687,6 +689,7 @@ class OrdinaryKriging:
             a_inv = torch.inverse(a.to(device=self.device, dtype=torch.float32))
 
         bd = torch.tensor(bd, dtype=torch.float32).to(self.device)
+        print("bd int: ", bd)
         if torch.any(torch.abs(bd) <= self.eps):
             zero_value = True
             zero_index = torch.where(torch.abs(bd) <= self.eps)
@@ -700,6 +703,7 @@ class OrdinaryKriging:
 
         if (~mask).any():
             mask_torch = torch.repeat_interleave(torch.from_numpy(mask).unsqueeze(1).unsqueeze(1), n + 1, dim=1).to(self.device)
+            print("mask_torch: ", mask_torch)
             b = torch.masked_fill(b, mask_torch, value=torch.tensor(float('nan'))).to(self.device)
 
         x = torch.matmul(a_inv, b.reshape((npt, n + 1)).T).reshape((1, n + 1, npt)).transpose(0, 2)
@@ -710,6 +714,8 @@ class OrdinaryKriging:
 
         np_zvalues = zvalues.cpu().numpy()
         np_sigmasq = sigmasq.cpu().numpy()
+        print("np_zvalues: ", np_zvalues)
+        print("np_sigmasq: ", np_sigmasq)
         return np_zvalues, np_sigmasq
 
     def _exec_loop(self, a, bd_all, mask):
@@ -870,10 +876,16 @@ class OrdinaryKriging:
 
         xpts = np.atleast_1d(np.squeeze(np.array(xpoints, copy=True)))
         ypts = np.atleast_1d(np.squeeze(np.array(ypoints, copy=True)))
+        print("xpts: ", xpts)
+        print("ypts: ", ypts)
         n = self.X_ADJUSTED.shape[0]
+        print("n: ", n)
         nx = xpts.size
+        print("nx: ", nx)
         ny = ypts.size
+        print("ny: ", ny)
         a = self._get_kriging_matrix(n)
+        print("a: ", a)
         if style in ["grid", "masked"]:
             if style == "masked":
                 if mask is None:
@@ -894,6 +906,8 @@ class OrdinaryKriging:
             ypts = grid_y.flatten()
 
         elif style == "points":
+            print(xpts.size)
+            print(ypts.size)
             if xpts.size != ypts.size:
                 raise ValueError(
                     "xpoints and ypoints must have "
@@ -901,6 +915,7 @@ class OrdinaryKriging:
                     "listing discrete points."
                 )
             npt = nx
+            print("npt: ", npt)
         else:
             raise ValueError("style argument must be 'grid', 'points', or 'masked'")
 
@@ -912,13 +927,17 @@ class OrdinaryKriging:
                 [self.anisotropy_angle],
                 self.device
             ).T
+            print("xpts: ", xpts)
+            print("ypts: ", ypts)
             # Prepare for cdist:
             xy_data = np.concatenate(
                 (self.X_ADJUSTED[:, np.newaxis], self.Y_ADJUSTED[:, np.newaxis]), axis=1
             )
+            print("xy_data: ", xy_data)
             xy_points = np.concatenate(
                 (xpts[:, np.newaxis], ypts[:, np.newaxis]), axis=1
             )
+            print("xy_points: ", xy_points)
         elif self.coordinates_type == "geographic":
             # In spherical coordinates, we do not correct for anisotropy.
             # Also, we don't use scipy.spatial.cdist, so we do not have to
@@ -927,6 +946,7 @@ class OrdinaryKriging:
 
         if style != "masked":
             mask = np.zeros(npt, dtype="bool")
+            print("mask: ", mask)
 
         c_pars = None
         if backend == "C":
@@ -1016,6 +1036,7 @@ class OrdinaryKriging:
         else:
             if self.coordinates_type == "euclidean":
                 bd = cdist(xy_points, xy_data, "euclidean")
+                print("bd", bd)
             elif self.coordinates_type == "geographic":
                 bd = core.great_circle_distance(
                     xpts[:, np.newaxis],

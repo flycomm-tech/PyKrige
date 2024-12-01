@@ -432,6 +432,7 @@ def _initialize_variogram_model(
     # to calculate semivariances...
     if coordinates_type == "euclidean":
         X = torch.tensor(X, dtype=torch.float32).to(device)
+        print("X in initialize_variogram_model")
         d = torch.pdist(X)
         g = 0.5 * torch.pdist(y.unsqueeze(1), p=2).pow(2)
     # geographic coordinates only accepted if the problem is 2D
@@ -537,7 +538,8 @@ def _initialize_variogram_model(
             variogram_model_parameters = _calculate_variogram_model(
                 lags, semivariance, variogram_model, variogram_function, weight, device
             )
-
+    print(lags)
+    print(semivariance)
     return lags, semivariance, variogram_model_parameters
 
 
