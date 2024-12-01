@@ -140,10 +140,10 @@ def _adjust_for_anisotropy(X, center, scaling, angle, device):
     X_adj : ndarray
         float array [n_samples, n_dim], the X array adjusted for anisotropy.
     """
-    X = torch.tensor(X, dtype=torch.float32, device=device)
-    center = torch.tensor(center, dtype=torch.float32, device=device).unsqueeze(0)
-    scaling = torch.tensor(scaling, dtype=torch.float32, device=device)
-    angle = torch.tensor(angle, dtype=torch.float32, device=device) * torch.pi / 180
+    X = torch.tensor(X, dtype=torch.float64, device=device)
+    center = torch.tensor(center, dtype=torch.float64, device=device).unsqueeze(0)
+    scaling = torch.tensor(scaling, dtype=torch.float64, device=device)
+    angle = torch.tensor(angle, dtype=torch.float64, device=device) * torch.pi / 180
 
     X -= center
 
@@ -430,7 +430,7 @@ def _initialize_variogram_model(
     # in a condensed distance vector (distance matrix flattened to a vector)
     # to calculate semivariances...
     if coordinates_type == "euclidean":
-        X = torch.tensor(X, dtype=torch.float32).to(device)
+        X = torch.tensor(X, dtype=torch.float64).to(device)
         print("X in initialize_variogram_model")
         d = torch.pdist(X)
         g = 0.5 * torch.pdist(y.unsqueeze(1), p=2).pow(2)
@@ -681,8 +681,8 @@ def _calculate_variogram_model(
     (psill = sill - nugget) -- setting bounds such that psill > 0 ensures that
     the sill will always be greater than the nugget...
     """
-    semivariance = torch.tensor(semivariance, dtype=torch.float32).to(device)
-    lags = torch.tensor(lags, dtype=torch.float32).to(device)
+    semivariance = torch.tensor(semivariance, dtype=torch.float64).to(device)
+    lags = torch.tensor(lags, dtype=torch.float64).to(device)
 
 
     if variogram_model == "linear":
