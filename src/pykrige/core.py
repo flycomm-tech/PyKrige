@@ -431,7 +431,6 @@ def _initialize_variogram_model(
     # to calculate semivariances...
     if coordinates_type == "euclidean":
         X = torch.tensor(X, dtype=torch.float64).to(device)
-        print("X in initialize_variogram_model")
         d = torch.pdist(X)
         g = 0.5 * torch.pdist(y.unsqueeze(1), p=2).pow(2)
     # geographic coordinates only accepted if the problem is 2D
@@ -546,8 +545,6 @@ def _initialize_variogram_model(
     semivariance = semivariance[non_nan_mask]
     print("GPU memory usage after:", result2/1024)
     print("difference GPU: ", ((result2/1024) - (result/1024)))
-    print("lags: ", lags)
-    print("semivariance: ", semivariance)
 
 
 

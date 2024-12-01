@@ -660,18 +660,10 @@ class OrdinaryKriging:
     def _get_kriging_matrix(self, n):
         """Assembles the kriging matrix."""
         if self.coordinates_type == "euclidean":
-            print("self.X_ADJUSTED", self.X_ADJUSTED)
-            print("self.Y_ADJUSTED", self.Y_ADJUSTED)
             xy = torch.cat(
                     (self.X_ADJUSTED.unsqueeze(1), self.Y_ADJUSTED.unsqueeze(1)), dim=1
             )
-            print("xy", xy)
-            # xy = np.concatenate(
-            #     (self.X_ADJUSTED[:, np.newaxis], self.Y_ADJUSTED[:, np.newaxis]), axis=1
-            # )
-            # d = cdist(xy, xy, "euclidean")
             d = torch.cdist(xy, xy, p=2)
-            print("d", d)
         elif self.coordinates_type == "geographic":
             d = core.great_circle_distance(
                 self.X_ADJUSTED[:, np.newaxis],
@@ -680,11 +672,7 @@ class OrdinaryKriging:
                 self.Y_ADJUSTED,
             )
         a = torch.zeros((n + 1, n + 1), dtype=torch.float32).to(self.device)
-        print("a", a)
-        d = torch.tensor(d, dtype=torch.float32).to(self.device)
-        print("d", d)
         a[:n, :n] = -self.variogram_function(self.variogram_model_parameters, d)
-        print("a", a)
         a.fill_diagonal_(0)
         a[n, :] = 1.0
         a[:, n] = 1.0
@@ -694,12 +682,8 @@ class OrdinaryKriging:
     def _exec_vector(self, a, bd, mask):
         """Solves the kriging system as a vectorized operation. This method
         can take a lot of memory for large grids and/or large datasets."""
-        # npt = bd.shape[0]
         npt = bd.size(0)
-        print("npt intern", npt)
-        # n = self.X_ADJUSTED.shape[0]
         n = self.X_ADJUSTED.size(0)
-        print("n intern", n)
         zero_index = None
         zero_value = False
 
@@ -709,8 +693,6 @@ class OrdinaryKriging:
         else:
             a_inv = torch.inverse(a.to(device=self.device, dtype=torch.float32))
 
-        bd = torch.tensor(bd, dtype=torch.float32).to(self.device)
-        print("bd 707", bd)
         if torch.any(torch.abs(bd) <= self.eps):
             zero_value = True
             zero_index = torch.where(torch.abs(bd) <= self.eps)
@@ -724,7 +706,6 @@ class OrdinaryKriging:
 
         if (~mask).any():
             mask_torch = torch.repeat_interleave(mask.unsqueeze(1).unsqueeze(1), n + 1, dim=1).to(self.device)
-            print("mask_torch", mask_torch)
             b = torch.masked_fill(b, mask_torch, value=torch.tensor(float('nan'))).to(self.device)
 
         x = torch.matmul(a_inv, b.reshape((npt, n + 1)).T).reshape((1, n + 1, npt)).transpose(0, 2)
@@ -735,8 +716,7 @@ class OrdinaryKriging:
 
         np_zvalues = zvalues.cpu().numpy()
         np_sigmasq = sigmasq.cpu().numpy()
-        print("np_zvalues", np_zvalues)
-        print("np_sigmasq", np_sigmasq)
+
         return np_zvalues, np_sigmasq
 
     def _exec_loop(self, a, bd_all, mask):
@@ -899,20 +879,10 @@ class OrdinaryKriging:
 
         xpts = torch.tensor(xpoints.values).to(self.device).clone().squeeze()
         ypts = torch.tensor(ypoints.values).to(self.device).clone().squeeze()
-        print("xpts: ", xpts)
-        print("xpts numpy: ", xpts.cpu().numpy())
-        print("ypts: ", ypts)
-        # xpts = np.atleast_1d(np.squeeze(np.array(xpoints, copy=True)))
-        # ypts = np.atleast_1d(np.squeeze(np.array(ypoints, copy=True)))
-        # n = self.X_ADJUSTED.shape[0]
         n = self.X_ADJUSTED.size(0)
-        print("n: ", n)
         nx = xpts.numel()
         ny = ypts.numel()
-        print("nx: ", nx)
-        print("ny: ", ny)
         a = self._get_kriging_matrix(n)
-        print("a: ", a)
         if style in ["grid", "masked"]:
             if style == "masked":
                 if mask is None:
@@ -933,8 +903,6 @@ class OrdinaryKriging:
             ypts = grid_y.flatten()
 
         elif style == "points":
-            print(xpts.numel())
-            print(ypts.numel())
             if xpts.numel() != ypts.numel():  # .size
                 raise ValueError(
                     "xpoints and ypoints must have "
@@ -942,7 +910,6 @@ class OrdinaryKriging:
                     "listing discrete points."
                 )
             npt = nx
-            print(npt)
         else:
             raise ValueError("style argument must be 'grid', 'points', or 'masked'")
 
@@ -954,16 +921,12 @@ class OrdinaryKriging:
                 [self.anisotropy_angle],
                 self.device
             ).T
-            print("xpts: ", xpts)
-            print("ypts: ", ypts)
             xy_data = torch.cat(
                 (self.X_ADJUSTED.unsqueeze(1), self.Y_ADJUSTED.unsqueeze(1)), dim=1
             )
-            print("xy_data: ", xy_data)
             xy_points = torch.cat(
                 (xpts.unsqueeze(1), ypts.unsqueeze(1)), dim=1
             )
-            print("xy_points: ", xy_points)
             # Prepare for cdist:
             # xy_data = np.concatenate(
             #     (self.X_ADJUSTED[:, np.newaxis], self.Y_ADJUSTED[:, np.newaxis]), axis=1
@@ -980,8 +943,6 @@ class OrdinaryKriging:
 
         if style != "masked":
             mask = torch.zeros(npt, dtype=torch.bool, device=self.device)
-            print("mask: ", mask)
-            # mask = np.zeros(npt, dtype="bool")
 
         c_pars = None
         if backend == "C":
@@ -1071,7 +1032,6 @@ class OrdinaryKriging:
         else:
             if self.coordinates_type == "euclidean":
                 bd = torch.cdist(xy_points, xy_data, p=2)
-                print("bd ext: ", bd)
                 # bd = cdist(xy_points, xy_data, "euclidean")
             elif self.coordinates_type == "geographic":
                 bd = core.great_circle_distance(
