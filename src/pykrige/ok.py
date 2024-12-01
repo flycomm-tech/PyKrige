@@ -660,14 +660,18 @@ class OrdinaryKriging:
     def _get_kriging_matrix(self, n):
         """Assembles the kriging matrix."""
         if self.coordinates_type == "euclidean":
+            print("self.X_ADJUSTED", self.X_ADJUSTED)
+            print("self.Y_ADJUSTED", self.Y_ADJUSTED)
             xy = torch.cat(
                     (self.X_ADJUSTED.unsqueeze(1), self.Y_ADJUSTED.unsqueeze(1)), dim=1
             )
+            print("xy", xy)
             # xy = np.concatenate(
             #     (self.X_ADJUSTED[:, np.newaxis], self.Y_ADJUSTED[:, np.newaxis]), axis=1
             # )
             # d = cdist(xy, xy, "euclidean")
             d = torch.cdist(xy, xy, p=2)
+            print("d", d)
         elif self.coordinates_type == "geographic":
             d = core.great_circle_distance(
                 self.X_ADJUSTED[:, np.newaxis],
@@ -676,9 +680,11 @@ class OrdinaryKriging:
                 self.Y_ADJUSTED,
             )
         a = torch.zeros((n + 1, n + 1), dtype=torch.float32).to(self.device)
+        print("a", a)
         d = torch.tensor(d, dtype=torch.float32).to(self.device)
+        print("d", d)
         a[:n, :n] = -self.variogram_function(self.variogram_model_parameters, d)
-
+        print("a", a)
         a.fill_diagonal_(0)
         a[n, :] = 1.0
         a[:, n] = 1.0
@@ -894,6 +900,7 @@ class OrdinaryKriging:
         xpts = torch.tensor(xpoints.values).to(self.device).clone().squeeze()
         ypts = torch.tensor(ypoints.values).to(self.device).clone().squeeze()
         print("xpts: ", xpts)
+        print("xpts numpy: ", xpts.cpu().numpy())
         print("ypts: ", ypts)
         # xpts = np.atleast_1d(np.squeeze(np.array(xpoints, copy=True)))
         # ypts = np.atleast_1d(np.squeeze(np.array(ypoints, copy=True)))
