@@ -935,7 +935,7 @@ class OrdinaryKriging:
                     "listing discrete points."
                 )
             npt = nx
-            pint(npt)
+            print(npt)
         else:
             raise ValueError("style argument must be 'grid', 'points', or 'masked'")
 
