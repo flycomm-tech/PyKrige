@@ -431,6 +431,7 @@ def _initialize_variogram_model(
     # to calculate semivariances...
     if coordinates_type == "euclidean":
         X = torch.tensor(X, dtype=torch.float32).to(device)
+        print("X in initialize_variogram_model")
         d = torch.pdist(X)
         g = 0.5 * torch.pdist(y.unsqueeze(1), p=2).pow(2)
     # geographic coordinates only accepted if the problem is 2D
@@ -483,15 +484,15 @@ def _initialize_variogram_model(
     # print("GPU memory usage before:", result / 1024)
     # print("len d", len(d))
     # print("shape bins", bins.shape)
-    mask = (d.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d.unsqueeze(0) < bins[1:].unsqueeze(1))
-    print("mask", mask.shape)
-    lags = torch.where(mask.sum(1) > 0, (d.unsqueeze(0) * mask).sum(1) / mask.sum(1),
-                       torch.tensor(float('nan'), device=device))
-    semivariance = torch.where(mask.sum(1) > 0, (g.unsqueeze(0) * mask).sum(1) / mask.sum(1),
-                               torch.tensor(float('nan'), device=device))
-    non_nan_mask = ~torch.isnan(semivariance)
-    lags = lags[non_nan_mask]
-    semivariance = semivariance[non_nan_mask]
+    # mask = (d.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d.unsqueeze(0) < bins[1:].unsqueeze(1))
+    # print("mask", mask.shape)
+    # lags = torch.where(mask.sum(1) > 0, (d.unsqueeze(0) * mask).sum(1) / mask.sum(1),
+    #                    torch.tensor(float('nan'), device=device))
+    # semivariance = torch.where(mask.sum(1) > 0, (g.unsqueeze(0) * mask).sum(1) / mask.sum(1),
+    #                            torch.tensor(float('nan'), device=device))
+    # non_nan_mask = ~torch.isnan(semivariance)
+    # lags = lags[non_nan_mask]
+    # semivariance = semivariance[non_nan_mask]
     # result2 = get_gpu_memory()
     # print("GPU memory usage after:", result2/1024)
     # print("difference GPU: ", ((result2/1024) - (result/1024)))
@@ -545,6 +546,8 @@ def _initialize_variogram_model(
     semivariance = semivariance[non_nan_mask]
     print("GPU memory usage after:", result2/1024)
     print("difference GPU: ", ((result2/1024) - (result/1024)))
+    print("lags: ", lags)
+    print("semivariance: ", semivariance)
 
 
 
