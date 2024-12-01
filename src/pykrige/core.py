@@ -191,8 +191,7 @@ def _adjust_for_anisotropy(X, center, scaling, angle, device):
 
     X_adj += center
 
-    return X_adj.cpu().numpy()
-
+    return X_adj
 
 def _make_variogram_parameter_list(variogram_model, variogram_model_parameters):
     """Converts the user input for the variogram model parameters into the
@@ -432,6 +431,7 @@ def _initialize_variogram_model(
     # to calculate semivariances...
     if coordinates_type == "euclidean":
         X = torch.tensor(X, dtype=torch.float32).to(device)
+        print("X in initialize_variogram_model")
         d = torch.pdist(X)
         g = 0.5 * torch.pdist(y.unsqueeze(1), p=2).pow(2)
     # geographic coordinates only accepted if the problem is 2D
@@ -479,7 +479,13 @@ def _initialize_variogram_model(
     # are supplied, they have been supplied as expected...
     # if variogram_model_parameters was not defined, then estimate the variogram
 
+    # solution 1
+    # result = get_gpu_memory()
+    # print("GPU memory usage before:", result / 1024)
+    # print("len d", len(d))
+    # print("shape bins", bins.shape)
     # mask = (d.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d.unsqueeze(0) < bins[1:].unsqueeze(1))
+    # print("mask", mask.shape)
     # lags = torch.where(mask.sum(1) > 0, (d.unsqueeze(0) * mask).sum(1) / mask.sum(1),
     #                    torch.tensor(float('nan'), device=device))
     # semivariance = torch.where(mask.sum(1) > 0, (g.unsqueeze(0) * mask).sum(1) / mask.sum(1),
@@ -487,31 +493,89 @@ def _initialize_variogram_model(
     # non_nan_mask = ~torch.isnan(semivariance)
     # lags = lags[non_nan_mask]
     # semivariance = semivariance[non_nan_mask]
+    # result2 = get_gpu_memory()
+    # print("GPU memory usage after:", result2/1024)
+    # print("difference GPU: ", ((result2/1024) - (result/1024)))
 
-    indices = torch.bucketize(d, bins)
-    valid = (indices > 0) & (indices < len(bins))
-    indices_valid = indices[valid]
-    d_valid = d[valid]
-    g_valid = g[valid]
+    # solution 2
+    batch_size = 30000000  # 30M
+    result = get_gpu_memory()
 
-    lags_sum = torch.zeros(len(bins) - 1, device=device)
-    lags_count = torch.zeros(len(bins) - 1, device=device)
-    semivariance_sum = torch.zeros(len(bins) - 1, device=device)
+    print("GPU memory usage before:", result / 1024)
+    print("len d", len(d))
+    num_batches = (d.size(0) + batch_size - 1) // batch_size
+    print("num batches ", num_batches)
+    lags_numerators = torch.zeros(bins.size(0) - 1, device=device)
+    lags_denominators = torch.zeros(bins.size(0) - 1, device=device)
 
-    lags_sum.index_add_(0, indices_valid - 1, d_valid)
-    lags_count.index_add_(0, indices_valid - 1, torch.ones_like(d_valid))
-    semivariance_sum.index_add_(0, indices_valid - 1, g_valid)
+    semivariance_numerators = torch.zeros(bins.size(0) - 1, device=device)
+    semivariance_denominators = torch.zeros(bins.size(0) - 1, device=device)
 
-    lags = torch.where(
-        lags_count > 0,
-        lags_sum / lags_count,
-        torch.tensor(float('nan'))
-    )
-    semivariance = torch.where(
-        lags_count > 0,
-        semivariance_sum / lags_count,
-        torch.tensor(float('nan'))
-    )
+    for i in range(num_batches):
+        print("batch ", i)
+        start_time = time()
+        d_batch = d[i * batch_size: (i + 1) * batch_size]
+        g_batch = g[i * batch_size: (i + 1) * batch_size]
+
+        d_batch = d_batch.to(device)
+        g_batch = g_batch.to(device)
+
+        mask = (d_batch.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d_batch.unsqueeze(0) < bins[1:].unsqueeze(1))
+        mask_float = mask.float()
+        lags_numerators += (d_batch.unsqueeze(0) * mask_float).sum(dim=1)
+        lags_denominators += mask_float.sum(dim=1)
+        semivariance_numerators += (g_batch.unsqueeze(0) * mask_float).sum(dim=1)
+        semivariance_denominators += mask_float.sum(dim=1)
+        del d_batch, g_batch, mask, mask_float
+        torch.cuda.empty_cache()  # Vide le cache GPU
+        print("end batch ", i, time() - start_time)
+
+    lags = torch.full_like(lags_numerators, float('nan'), device=device)
+    valid_lags = lags_denominators > 0
+    lags[valid_lags] = lags_numerators[valid_lags] / lags_denominators[valid_lags]
+
+    semivariance = torch.full_like(semivariance_numerators, float('nan'), device=device)
+    valid_semivariance = semivariance_denominators > 0
+    semivariance[valid_semivariance] = semivariance_numerators[valid_semivariance] / semivariance_denominators[
+        valid_semivariance]
+
+    non_nan_mask = ~torch.isnan(semivariance)
+    result2 = get_gpu_memory()
+
+    lags = lags[non_nan_mask]
+    semivariance = semivariance[non_nan_mask]
+    print("GPU memory usage after:", result2/1024)
+    print("difference GPU: ", ((result2/1024) - (result/1024)))
+    print("lags: ", lags)
+    print("semivariance: ", semivariance)
+
+
+
+    # slution 3
+    # indices = torch.bucketize(d, bins)
+    # valid = (indices > 0) & (indices < len(bins))
+    # indices_valid = indices[valid]
+    # d_valid = d[valid]
+    # g_valid = g[valid]
+    #
+    # lags_sum = torch.zeros(len(bins) - 1, device=device)
+    # lags_count = torch.zeros(len(bins) - 1, device=device)
+    # semivariance_sum = torch.zeros(len(bins) - 1, device=device)
+    #
+    # lags_sum.index_add_(0, indices_valid - 1, d_valid)
+    # lags_count.index_add_(0, indices_valid - 1, torch.ones_like(d_valid))
+    # semivariance_sum.index_add_(0, indices_valid - 1, g_valid)
+    #
+    # lags = torch.where(
+    #     lags_count > 0,
+    #     lags_sum / lags_count,
+    #     torch.tensor(float('nan'))
+    # )
+    # semivariance = torch.where(
+    #     lags_count > 0,
+    #     semivariance_sum / lags_count,
+    #     torch.tensor(float('nan'))
+    # )
 
     if variogram_model_parameters is not None:
         if variogram_model == "linear" and len(variogram_model_parameters) != 2:
@@ -871,3 +935,12 @@ def calcQ2(epsilon):
 def calc_cR(Q2, sigma):
     """Returns the cR statistic for the variogram fit (see [1])."""
     return Q2 * np.exp(np.sum(np.log(sigma**2)) / sigma.shape[0])
+
+import subprocess
+
+
+def get_gpu_memory():
+    result = subprocess.check_output(
+        ['nvidia-smi', '--query-gpu=memory.used', '--format=csv,nounits,noheader']
+    )
+    return int(result.decode().strip())
