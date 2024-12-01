@@ -651,10 +651,14 @@ class OrdinaryKriging:
     def _get_kriging_matrix(self, n):
         """Assembles the kriging matrix."""
         if self.coordinates_type == "euclidean":
+            print("self.X_ADJUSTED", self.X_ADJUSTED)
+            print("self.Y_ADJUSTED", self.Y_ADJUSTED)
             xy = np.concatenate(
                 (self.X_ADJUSTED[:, np.newaxis], self.Y_ADJUSTED[:, np.newaxis]), axis=1
             )
+            print("xy", xy)
             d = cdist(xy, xy, "euclidean")
+            print("d", d)
         elif self.coordinates_type == "geographic":
             d = core.great_circle_distance(
                 self.X_ADJUSTED[:, np.newaxis],
@@ -663,9 +667,11 @@ class OrdinaryKriging:
                 self.Y_ADJUSTED,
             )
         a = torch.zeros((n + 1, n + 1), dtype=torch.float32).to(self.device)
+        print("a", a)
         d = torch.tensor(d, dtype=torch.float32).to(self.device)
+        print("d", d)
         a[:n, :n] = -self.variogram_function(self.variogram_model_parameters, d)
-
+        print("a", a)
         a.fill_diagonal_(0)
         a[n, :] = 1.0
         a[:, n] = 1.0
