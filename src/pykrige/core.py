@@ -375,6 +375,21 @@ def _make_variogram_parameter_list(variogram_model, variogram_model_parameters):
 
     return parameter_list
 
+
+def _batched_pdist_general(input_tensor, batch_size, p=2):
+    N = input_tensor.size(0)
+    distances = []
+    for i in range(0, N, batch_size):
+        xi = input_tensor[i:i+batch_size]
+        dij = torch.cdist(xi, input_tensor, p=p)
+        distances.append(dij)
+    dij_full = torch.cat(distances, dim=0)
+    i_upper = torch.triu_indices(N, N, offset=1)
+    pdist_batched = dij_full[i_upper[0], i_upper[1]]
+    return pdist_batched
+
+
+
 def _initialize_variogram_model(
     X,
     y,
@@ -435,8 +450,14 @@ def _initialize_variogram_model(
         print(y)
         print(X.shape)
         print(y.shape)
+        d = batched_pdist_general(X, batch_size=500, p=2)
+        print("new d", d)
+        g = 0.5 * batched_pdist_general(y.unsqueeze(1), batch_size=500, p=2).pow(2)
+        print("new g", g)
         d = torch.pdist(X)
+        print(d)
         g = 0.5 * torch.pdist(y.unsqueeze(1), p=2).pow(2)
+        print(g)
     # geographic coordinates only accepted if the problem is 2D
     # assume X[:, 0] ('x') => lon, X[:, 1] ('y') => lat
     # old method of distance calculation is retained here...
