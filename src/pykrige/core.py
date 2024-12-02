@@ -431,6 +431,10 @@ def _initialize_variogram_model(
     # to calculate semivariances...
     if coordinates_type == "euclidean":
         X = torch.tensor(X, dtype=torch.float64).to(device)
+        print(X)
+        print(y)
+        print(X.shape)
+        print(y.shape)
         d = torch.pdist(X)
         g = 0.5 * torch.pdist(y.unsqueeze(1), p=2).pow(2)
     # geographic coordinates only accepted if the problem is 2D
@@ -497,7 +501,7 @@ def _initialize_variogram_model(
     # print("difference GPU: ", ((result2/1024) - (result/1024)))
 
     # solution 2
-    batch_size = 30000000  # 30M
+    batch_size = 25000000  # 25M
     result = get_gpu_memory()
 
     print("GPU memory usage before:", result / 1024)
