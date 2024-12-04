@@ -383,6 +383,8 @@ def _batched_pdist(input_tensor, batch_size, p=2):
         xi = input_tensor[i:i+batch_size]
         dij = torch.cdist(xi, input_tensor, p=p)
         distances.append(dij)
+        del xi, dij
+        torch.cuda.empty_cache()
     dij_full = torch.cat(distances, dim=0)
     i_upper = torch.triu_indices(N, N, offset=1)
     pdist_batched = dij_full[i_upper[0], i_upper[1]]
@@ -544,7 +546,7 @@ def _initialize_variogram_model(
         semivariance_numerators += (g_batch.unsqueeze(0) * mask_float).sum(dim=1)
         semivariance_denominators += mask_float.sum(dim=1)
         del d_batch, g_batch, mask, mask_float
-        torch.cuda.empty_cache()  # Vide le cache GPU
+        torch.cuda.empty_cache()
         print("end batch ", i, time() - start_time)
 
     lags = torch.full_like(lags_numerators, float('nan'), device=device)
