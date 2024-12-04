@@ -376,7 +376,7 @@ def _make_variogram_parameter_list(variogram_model, variogram_model_parameters):
     return parameter_list
 
 
-def _batched_pdist_general(input_tensor, batch_size, p=2):
+def _batched_pdist(input_tensor, batch_size, p=2):
     N = input_tensor.size(0)
     distances = []
     for i in range(0, N, batch_size):
@@ -445,19 +445,12 @@ def _initialize_variogram_model(
     # in a condensed distance vector (distance matrix flattened to a vector)
     # to calculate semivariances...
     if coordinates_type == "euclidean":
-        X = torch.tensor(X, dtype=torch.float64).to(device)
-        print(X)
-        print(y)
-        print(X.shape)
-        print(y.shape)
-        d = _batched_pdist_general(X, batch_size=1000, p=2)
-        print("new d", d)
-        g = 0.5 * _batched_pdist_general(y.unsqueeze(1), batch_size=1000, p=2).pow(2)
-        print("new g", g)
-        d = torch.pdist(X)
-        print(d)
-        g = 0.5 * torch.pdist(y.unsqueeze(1), p=2).pow(2)
-        print(g)
+        start_time = time()
+        d = _batched_pdist(X, batch_size=1000, p=2)
+        g = 0.5 * _batched_pdist(y.unsqueeze(1), batch_size=1000, p=2).pow(2)
+        # d = torch.pdist(X)
+        # g = 0.5 * torch.pdist(y.unsqueeze(1), p=2).pow(2)
+        print("torch pdist with batch takes: ", time() - start_time)
     # geographic coordinates only accepted if the problem is 2D
     # assume X[:, 0] ('x') => lon, X[:, 1] ('y') => lat
     # old method of distance calculation is retained here...
