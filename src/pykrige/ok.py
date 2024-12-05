@@ -277,7 +277,7 @@ class OrdinaryKriging:
         # self.X_ORIG = np.atleast_1d(
         #     np.squeeze(np.array(x, copy=True, dtype=np.float64))
         # )
-        self.X_ORIG = torch.tensor(x, dtype=torch.float64).squeeze()
+        self.X_ORIG = torch.tensor(x.values, dtype=torch.float64).squeeze()
         # self.Y_ORIG = np.atleast_1d(
         #     np.squeeze(np.array(y, copy=True, dtype=np.float64))
         # )
