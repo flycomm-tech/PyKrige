@@ -28,7 +28,6 @@ import numpy as np
 import scipy.linalg
 import torch
 from scipy.spatial.distance import cdist
-import subprocess
 
 from . import core, variogram_models
 from .compat_gstools import validate_gstools
@@ -38,6 +37,7 @@ from .core import (
     _find_statistics,
     _initialize_variogram_model,
     _make_variogram_parameter_list,
+    _get_gpu_memory
 )
 
 
@@ -215,9 +215,10 @@ class OrdinaryKriging:
             torch.cuda.empty_cache()
             current_gpu = torch.cuda.current_device()
             print(f"GPU name : {torch.cuda.get_device_name(current_gpu)}")
-            result = self.get_gpu_memory()
+            result = _get_gpu_memory()
             print("start constructor GPU memory: ", result / 1024)
         self.device = device
+        self.is_cuda_available = is_cuda_available
         # config the pseudo inverse
         self.pseudo_inv = bool(pseudo_inv)
         self.pseudo_inv_type = str(pseudo_inv_type)
@@ -273,19 +274,19 @@ class OrdinaryKriging:
         # problems with referencing the original passed arguments.
         # Also, values are forced to be float... in the future, might be worth
         # developing complex-number kriging (useful for vector field kriging)
-        start_time = time()
-        self.X_ORIG = np.atleast_1d(
-            np.squeeze(np.array(x, copy=True, dtype=np.float64))
-        )
-        self.Y_ORIG = np.atleast_1d(
-            np.squeeze(np.array(y, copy=True, dtype=np.float64))
-        )
+        # self.X_ORIG = np.atleast_1d(
+        #     np.squeeze(np.array(x, copy=True, dtype=np.float64))
+        # )
+        self.X_ORIG = torch.tensor(x, dtype=torch.float64).squeeze()
+        # self.Y_ORIG = np.atleast_1d(
+        #     np.squeeze(np.array(y, copy=True, dtype=np.float64))
+        # )
+        self.Y_ORIG = torch.tensor(y, dtype=torch.float64).squeeze()
 
         z = torch.tensor(z.values, dtype=torch.float32).to(device).squeeze()
         if z.dim() == 0:
             z = z.unsqueeze(0)
         self.Z = z
-        print("time to execute X_ORIG, Y_ORIG", time() - start_time)
 
         self.verbose = verbose
         self.enable_plotting = enable_plotting
@@ -296,14 +297,17 @@ class OrdinaryKriging:
         # coordinates, as anisotropy is ambiguous for geographic coordinates...
         if self.coordinates_type == "euclidean":
             start_time = time()
-            self.XCENTER = (np.amax(self.X_ORIG) + np.amin(self.X_ORIG)) / 2.0
-            self.YCENTER = (np.amax(self.Y_ORIG) + np.amin(self.Y_ORIG)) / 2.0
+            self.XCENTER = (self.X_ORIG.max() + self.X_ORIG.min()) / 2.0
+            self.YCENTER = (self.Y_ORIG.max() + self.Y_ORIG.min()) / 2.0
+            # self.XCENTER = (np.amax(self.X_ORIG) + np.amin(self.X_ORIG)) / 2.0
+            # self.YCENTER = (np.amax(self.Y_ORIG) + np.amin(self.Y_ORIG)) / 2.0
             self.anisotropy_scaling = anisotropy_scaling
             self.anisotropy_angle = anisotropy_angle
             if self.verbose:
                 print("Adjusting data for anisotropy...")
             self.X_ADJUSTED, self.Y_ADJUSTED = _adjust_for_anisotropy(
-                np.vstack((self.X_ORIG, self.Y_ORIG)).T,
+                torch.stack((self.X_ORIG, self.Y_ORIG), dim=1),
+                # np.vstack((self.X_ORIG, self.Y_ORIG)).T,
                 [self.XCENTER, self.YCENTER],
                 [self.anisotropy_scaling],
                 [self.anisotropy_angle],
@@ -343,7 +347,7 @@ class OrdinaryKriging:
                 self.semivariance,
                 self.variogram_model_parameters,
             ) = _initialize_variogram_model(
-                torch.stack((self.X_ADJUSTED, self.Y_ADJUSTED), dim=1),  # np.vstack((self.X_ADJUSTED, self.Y_ADJUSTED)).T,
+                torch.stack((self.X_ADJUSTED, self.Y_ADJUSTED), dim=1),
                 self.Z,
                 self.variogram_model,
                 vp_temp,
@@ -351,7 +355,8 @@ class OrdinaryKriging:
                 nlags,
                 weight,
                 self.coordinates_type,
-                self.device
+                self.device,
+                self.is_cuda_available
             )
         except RuntimeError as e:
             if is_cuda_available and "CUDA out of memory" in str(e):
@@ -405,7 +410,9 @@ class OrdinaryKriging:
                 print("cR =", self.cR, "\n")
         else:
             self.delta, self.sigma, self.epsilon, self.Q1, self.Q2, self.cR = [None] * 6
-        result = self.get_gpu_memory()
+        if self.is_cuda_available:
+            torch.cuda.empty_cache()
+        result = _get_gpu_memory()
         print("end constructor GPU memory: ", result / 1024)
 
     def update_variogram_model(
@@ -716,7 +723,8 @@ class OrdinaryKriging:
 
         np_zvalues = zvalues.cpu().numpy()
         np_sigmasq = sigmasq.cpu().numpy()
-
+        if self.is_cuda_available:
+            torch.cuda.empty_cache()
         return np_zvalues, np_sigmasq
 
     def _exec_loop(self, a, bd_all, mask):
@@ -864,7 +872,9 @@ class OrdinaryKriging:
             set of points. If style was specified as 'masked', sigmasq
             will be a numpy masked array.
         """
-        result = self.get_gpu_memory()
+        if self.is_cuda_available:
+            torch.cuda.empty_cache()
+        result = _get_gpu_memory()
         print("start prediction GPU memory: ", result / 1024)
         if self.verbose:
             print("Executing Ordinary Kriging...\n")
@@ -915,7 +925,7 @@ class OrdinaryKriging:
 
         if self.coordinates_type == "euclidean":
             xpts, ypts = _adjust_for_anisotropy(
-                torch.stack((xpts, ypts), dim=1),  # np.vstack((xpts, ypts)).T,
+                torch.stack((xpts, ypts), dim=1),
                 [self.XCENTER, self.YCENTER],
                 [self.anisotropy_scaling],
                 [self.anisotropy_angle],
@@ -927,13 +937,6 @@ class OrdinaryKriging:
             xy_points = torch.cat(
                 (xpts.unsqueeze(1), ypts.unsqueeze(1)), dim=1
             )
-            # Prepare for cdist:
-            # xy_data = np.concatenate(
-            #     (self.X_ADJUSTED[:, np.newaxis], self.Y_ADJUSTED[:, np.newaxis]), axis=1
-            # )
-            # xy_points = np.concatenate(
-            #     (xpts[:, np.newaxis], ypts[:, np.newaxis]), axis=1
-            # )
 
         elif self.coordinates_type == "geographic":
             # In spherical coordinates, we do not correct for anisotropy.
@@ -1064,23 +1067,9 @@ class OrdinaryKriging:
         if style in ["masked", "grid"]:
             zvalues = zvalues.reshape((ny, nx))
             sigmasq = sigmasq.reshape((ny, nx))
-        torch.cuda.empty_cache()
-        result = self.get_gpu_memory()
+        if self.is_cuda_available:
+            torch.cuda.empty_cache()
+        result = _get_gpu_memory()
         print("end prediction GPU memory: ", result / 1024)
         return zvalues, sigmasq
-
-    def get_device_info(xself):
-        is_cuda_available = torch.cuda.is_available()
-        device = torch.device("cuda" if is_cuda_available else "cpu")
-        current_gpu = None
-        if is_cuda_available:
-            current_gpu = torch.cuda.current_device()
-        return device, current_gpu
-
-
-    def get_gpu_memory(self):
-        result = subprocess.check_output(
-            ['nvidia-smi', '--query-gpu=memory.used', '--format=csv,nounits,noheader']
-        )
-        return int(result.decode().strip())
 

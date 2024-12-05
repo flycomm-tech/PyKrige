@@ -21,6 +21,8 @@ References
 
 Copyright (c) 2015-2020, PyKrige Developers
 """
+import subprocess
+import shutil
 from time import time
 
 import torch
@@ -28,6 +30,7 @@ import numpy as np
 import scipy.linalg as spl
 from scipy.optimize import least_squares
 from scipy.spatial.distance import cdist, pdist, squareform
+
 
 eps = 1.0e-10  # Cutoff for comparison to zero
 
@@ -140,8 +143,9 @@ def _adjust_for_anisotropy(X, center, scaling, angle, device):
     X_adj : ndarray
         float array [n_samples, n_dim], the X array adjusted for anisotropy.
     """
-    X = torch.tensor(X, dtype=torch.float64, device=device)
-    center = torch.tensor(center, dtype=torch.float64, device=device).unsqueeze(0)
+    # X = torch.tensor(X, dtype=torch.float64, device=device)
+    # center = torch.tensor(center, dtype=torch.float64, device=device).unsqueeze(0)
+    center = torch.stack(center).unsqueeze(0).to(device)
     scaling = torch.tensor(scaling, dtype=torch.float64, device=device)
     angle = torch.tensor(angle, dtype=torch.float64, device=device) * torch.pi / 180
 
@@ -377,7 +381,7 @@ def _make_variogram_parameter_list(variogram_model, variogram_model_parameters):
 
 
 def _batched_pdist(input_tensor):
-    batch_size = 1000
+    batch_size = 750
     N = input_tensor.size(0)
     distances = []
     for i in range(0, N, batch_size):
@@ -385,7 +389,8 @@ def _batched_pdist(input_tensor):
         dij = torch.cdist(xi, input_tensor, p=2)
         distances.append(dij)
         del xi, dij
-        torch.cuda.empty_cache()
+        if is_cuda_available:
+            torch.cuda.empty_cache()
     dij_full = torch.cat(distances, dim=0)
     i_upper = torch.triu_indices(N, N, offset=1)
     pdist_batched = dij_full[i_upper[0], i_upper[1]]
@@ -402,7 +407,8 @@ def _initialize_variogram_model(
     nlags,
     weight,
     coordinates_type,
-    device
+    device,
+    is_cuda_available
 ):
     """Initializes the variogram model for kriging. If user does not specify
     parameters, calls automatic variogram estimation routine.
@@ -517,7 +523,7 @@ def _initialize_variogram_model(
 
     # solution 2
     batch_size = 25000000  # 25M
-    result = get_gpu_memory()
+    result = _get_gpu_memory()
 
     print("GPU memory usage before:", result / 1024)
     print("len d", len(d))
@@ -545,7 +551,8 @@ def _initialize_variogram_model(
         semivariance_numerators += (g_batch.unsqueeze(0) * mask_float).sum(dim=1)
         semivariance_denominators += mask_float.sum(dim=1)
         del d_batch, g_batch, mask, mask_float
-        torch.cuda.empty_cache()
+        if is_cuda_available:
+            torch.cuda.empty_cache()
         print("end batch ", i, time() - start_time)
 
     lags = torch.full_like(lags_numerators, float('nan'), device=device)
@@ -558,7 +565,7 @@ def _initialize_variogram_model(
         valid_semivariance]
 
     non_nan_mask = ~torch.isnan(semivariance)
-    result2 = get_gpu_memory()
+    result2 = _get_gpu_memory()
 
     lags = lags[non_nan_mask]
     semivariance = semivariance[non_nan_mask]
@@ -952,11 +959,13 @@ def calc_cR(Q2, sigma):
     """Returns the cR statistic for the variogram fit (see [1])."""
     return Q2 * np.exp(np.sum(np.log(sigma**2)) / sigma.shape[0])
 
-import subprocess
 
-
-def get_gpu_memory():
-    result = subprocess.check_output(
-        ['nvidia-smi', '--query-gpu=memory.used', '--format=csv,nounits,noheader']
-    )
-    return int(result.decode().strip())
+def _get_gpu_memory() -> int:
+    if shutil.which('nvidia-smi'):
+        result = subprocess.check_output(
+            ['nvidia-smi', '--query-gpu=memory.used', '--format=csv,nounits,noheader']
+        )
+        return int(result.decode().strip())
+    else:
+        print("The command nvidia-smi is not available on this system.")
+        return 0
