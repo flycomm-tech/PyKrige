@@ -143,9 +143,9 @@ def _adjust_for_anisotropy(X, center, scaling, angle, device):
     X_adj : ndarray
         float array [n_samples, n_dim], the X array adjusted for anisotropy.
     """
-    # X = torch.tensor(X, dtype=torch.float64, device=device)
-    center = torch.tensor(center, dtype=torch.float64, device=device).unsqueeze(0)
-    # center = torch.stack(center).unsqueeze(0).to(device)
+    X = torch.tensor(X, dtype=torch.float64, device=device)
+    # center = torch.tensor(center, dtype=torch.float64, device=device).unsqueeze(0)
+    center = torch.stack(center).unsqueeze(0).to(device)
     scaling = torch.tensor(scaling, dtype=torch.float64, device=device)
     angle = torch.tensor(angle, dtype=torch.float64, device=device) * torch.pi / 180
 

@@ -277,11 +277,11 @@ class OrdinaryKriging:
         # self.X_ORIG = np.atleast_1d(
         #     np.squeeze(np.array(x, copy=True, dtype=np.float64))
         # )
-        self.X_ORIG = torch.tensor(x.values, dtype=torch.float64).squeeze()
+        self.X_ORIG = torch.tensor(x.values, dtype=torch.float64).to(device).squeeze()
         # self.Y_ORIG = np.atleast_1d(
         #     np.squeeze(np.array(y, copy=True, dtype=np.float64))
         # )
-        self.Y_ORIG = torch.tensor(y.values, dtype=torch.float64).squeeze()
+        self.Y_ORIG = torch.tensor(y.values, dtype=torch.float64).to(device).squeeze()
 
         z = torch.tensor(z.values, dtype=torch.float32).to(device).squeeze()
         if z.dim() == 0:
