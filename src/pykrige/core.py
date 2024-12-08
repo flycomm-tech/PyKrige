@@ -389,11 +389,8 @@ def _batched_pdist(input_tensor, is_cuda_available):
         dij = torch.cdist(xi, input_tensor, p=2)
         distances.append(dij)
         del xi, dij
-        # if is_cuda_available:
-        #     res1 = _get_gpu_memory()
-        #     torch.cuda.empty_cache()
-        #     res2 = _get_gpu_memory()
-        #     print("empty cache in bach pdist delete: ", (res2/1024) - (res1/1024))
+        if is_cuda_available:
+            torch.cuda.empty_cache()
     dij_full = torch.cat(distances, dim=0)
     i_upper = torch.triu_indices(N, N, offset=1)
     pdist_batched = dij_full[i_upper[0], i_upper[1]]
@@ -567,13 +564,15 @@ def _initialize_variogram_model(
     semivariance[valid_semivariance] = semivariance_numerators[valid_semivariance] / semivariance_denominators[
         valid_semivariance]
 
-    non_nan_mask = ~torch.isnan(semivariance)
-    result2 = _get_gpu_memory()
 
+    non_nan_mask = ~torch.isnan(semivariance)
     lags = lags[non_nan_mask]
     semivariance = semivariance[non_nan_mask]
+
+    del semivariance_numerators, semivariance_denominators, lags_numerators, lags_denominators, non_nan_mask
+    torch.cuda.empty_cache()
+    result2 = _get_gpu_memory()
     print("GPU memory usage after:", result2/1024)
-    print("difference GPU: ", ((result2/1024) - (result/1024)))
 
 
 
