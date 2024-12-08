@@ -317,7 +317,7 @@ class OrdinaryKriging:
                 result = _get_gpu_memory()
                 torch.cuda.empty_cache()
                 result2 = _get_gpu_memory()
-                print("empty cache after anisotropy delete :", result2/1024 - result/1024)
+                print("empty cache after anisotropy delete :", (result2/1024) - (result/1024))
             print("time to execute X_ADJUSTED, Y_ADJUSTED and anisotropy", time() - start_time)
         elif self.coordinates_type == "geographic":
             # Leave everything as is in geographic case.

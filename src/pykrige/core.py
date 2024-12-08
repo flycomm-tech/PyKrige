@@ -393,7 +393,7 @@ def _batched_pdist(input_tensor, is_cuda_available):
             res1 = _get_gpu_memory()
             torch.cuda.empty_cache()
             res2 = _get_gpu_memory()
-            print("empty cache in bach pdist delete: ", res2/1024 - res1/1024)
+            print("empty cache in bach pdist delete: ", (res2/1024) - (res1/1024))
     dij_full = torch.cat(distances, dim=0)
     i_upper = torch.triu_indices(N, N, offset=1)
     pdist_batched = dij_full[i_upper[0], i_upper[1]]
