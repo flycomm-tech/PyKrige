@@ -390,7 +390,10 @@ def _batched_pdist(input_tensor, is_cuda_available):
         distances.append(dij)
         del xi, dij
         if is_cuda_available:
+            res1 = _get_gpu_memory()
             torch.cuda.empty_cache()
+            res2 = _get_gpu_memory()
+            print("empty cache in bach pdist delete: ", res2/1024 - res1/1024)
     dij_full = torch.cat(distances, dim=0)
     i_upper = torch.triu_indices(N, N, offset=1)
     pdist_batched = dij_full[i_upper[0], i_upper[1]]
@@ -522,7 +525,7 @@ def _initialize_variogram_model(
     # print("difference GPU: ", ((result2/1024) - (result/1024)))
 
     # solution 2
-    batch_size = 25000000  # 25M
+    batch_size = 20000000  # 20M
     result = _get_gpu_memory()
 
     print("GPU memory usage before:", result / 1024)
