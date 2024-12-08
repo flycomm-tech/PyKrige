@@ -704,7 +704,6 @@ class OrdinaryKriging:
             a_inv = P_INV[self.pseudo_inv_type](a)
         else:
             a_inv = torch.inverse(a.to(device=self.device, dtype=torch.float32))
-
         if torch.any(torch.abs(bd) <= self.eps):
             zero_value = True
             zero_index = torch.where(torch.abs(bd) <= self.eps)
@@ -729,6 +728,7 @@ class OrdinaryKriging:
         np_zvalues = zvalues.cpu().numpy()
         np_sigmasq = sigmasq.cpu().numpy()
         if self.is_cuda_available:
+            del zvalues, sigmasq, x, b, a, mask, mask_torch, a_inv
             torch.cuda.empty_cache()
         return np_zvalues, np_sigmasq
 
