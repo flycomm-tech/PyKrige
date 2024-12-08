@@ -311,7 +311,8 @@ class OrdinaryKriging:
                 [self.XCENTER, self.YCENTER],
                 [self.anisotropy_scaling],
                 [self.anisotropy_angle],
-                self.device
+                self.device,
+                self.is_cuda_available
             ).T
             # if self.is_cuda_available:
             #     result = _get_gpu_memory()
@@ -934,7 +935,8 @@ class OrdinaryKriging:
                 [self.XCENTER, self.YCENTER],
                 [self.anisotropy_scaling],
                 [self.anisotropy_angle],
-                self.device
+                self.device,
+                self.is_cuda_available
             ).T
             xy_data = torch.cat(
                 (self.X_ADJUSTED.unsqueeze(1), self.Y_ADJUSTED.unsqueeze(1)), dim=1

@@ -122,7 +122,7 @@ def euclid3_to_great_circle(euclid3_distance):
     return 180.0 - 360.0 / np.pi * np.arccos(0.5 * euclid3_distance)
 
 
-def _adjust_for_anisotropy(X, center, scaling, angle, device):
+def _adjust_for_anisotropy(X, center, scaling, angle, device, is_cuda_available):
     """Adjusts data coordinates to take into account anisotropy.
     Can also be used to take into account data scaling. Angles are CCW about
     specified axes. Scaling is applied in rotated coordinate system.
@@ -194,7 +194,9 @@ def _adjust_for_anisotropy(X, center, scaling, angle, device):
     X_adj = torch.mm(stretch, torch.mm(rot_tot, X.t())).t()
 
     X_adj += center
-
+    del X, center, scaling, angle
+    if is_cuda_available:
+        torch.cuda.empty_cache()
     return X_adj
 
 def _make_variogram_parameter_list(variogram_model, variogram_model_parameters):
@@ -394,6 +396,9 @@ def _batched_pdist(input_tensor, is_cuda_available):
     dij_full = torch.cat(distances, dim=0)
     i_upper = torch.triu_indices(N, N, offset=1)
     pdist_batched = dij_full[i_upper[0], i_upper[1]]
+    del dij_full, i_upper
+    if is_cuda_available:
+        torch.cuda.empty_cache()
     return pdist_batched
 
 
