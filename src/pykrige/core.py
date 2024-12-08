@@ -380,7 +380,7 @@ def _make_variogram_parameter_list(variogram_model, variogram_model_parameters):
     return parameter_list
 
 
-def _batched_pdist(input_tensor):
+def _batched_pdist(input_tensor, is_cuda_available):
     batch_size = 750
     N = input_tensor.size(0)
     distances = []
@@ -455,8 +455,8 @@ def _initialize_variogram_model(
     # to calculate semivariances...
     if coordinates_type == "euclidean":
         start_time = time()
-        d = _batched_pdist(X)
-        g = 0.5 * _batched_pdist(y.unsqueeze(1)).pow(2)
+        d = _batched_pdist(X, is_cuda_available)
+        g = 0.5 * _batched_pdist(y.unsqueeze(1), is_cuda_available).pow(2)
         print("torch pdist with batch takes: ", time() - start_time)
     # geographic coordinates only accepted if the problem is 2D
     # assume X[:, 0] ('x') => lon, X[:, 1] ('y') => lat
