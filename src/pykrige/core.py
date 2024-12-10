@@ -524,7 +524,7 @@ def _initialize_variogram_model(
     # print("difference GPU: ", ((result2/1024) - (result/1024)))
 
     # solution 2
-    batch_size = 10000000  # 15M
+    batch_size = 15000000  # 15M
     result = _get_gpu_memory()
 
     print("GPU memory usage before:", result / 1024)
