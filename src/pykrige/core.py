@@ -387,7 +387,7 @@ def _make_variogram_parameter_list(variogram_model, variogram_model_parameters):
 
 
 def _batched_pdist(input_tensor, is_cuda_available):
-    batch_size = 750
+    batch_size = 1000
     N = input_tensor.size(0)
     distances = []
     for i in range(0, N, batch_size):
@@ -535,7 +535,7 @@ def _initialize_variogram_model(
     # print("difference GPU: ", ((result2/1024) - (result/1024)))
 
     # solution 2
-    batch_size = 10000000  # 20M
+    batch_size = 15000000  # 15M
     result = _get_gpu_memory()
 
     print("GPU memory usage before:", result / 1024)
