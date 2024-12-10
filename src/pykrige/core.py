@@ -196,7 +196,11 @@ def _adjust_for_anisotropy(X, center, scaling, angle, device, is_cuda_available)
     X_adj += center
     del X, center, scaling, angle
     if is_cuda_available:
+        result = _get_gpu_memory()
+        print("result _adjust_for_anisotropy before empty cache", result / 1024)
         torch.cuda.empty_cache()
+        result = _get_gpu_memory()
+        print("result _adjust_for_anisotropy after empty cache", result / 1024)
     return X_adj
 
 def _make_variogram_parameter_list(variogram_model, variogram_model_parameters):
@@ -392,7 +396,11 @@ def _batched_pdist(input_tensor, is_cuda_available):
         distances.append(dij)
         del xi, dij
         if is_cuda_available:
+            result = _get_gpu_memory()
+            print("result batch pdist before empty cache", result/1024)
             torch.cuda.empty_cache()
+            result = _get_gpu_memory()
+            print("result batch pdist after empty cache", result / 1024)
     dij_full = torch.cat(distances, dim=0)
     i_upper = torch.triu_indices(N, N, offset=1)
     pdist_batched = dij_full[i_upper[0], i_upper[1]]
@@ -527,7 +535,7 @@ def _initialize_variogram_model(
     # print("difference GPU: ", ((result2/1024) - (result/1024)))
 
     # solution 2
-    batch_size = 20000000  # 20M
+    batch_size = 10000000  # 20M
     result = _get_gpu_memory()
 
     print("GPU memory usage before:", result / 1024)
