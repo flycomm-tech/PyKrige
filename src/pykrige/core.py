@@ -143,8 +143,6 @@ def _adjust_for_anisotropy(X, center, scaling, angle, device, is_cuda_available)
     X_adj : ndarray
         float array [n_samples, n_dim], the X array adjusted for anisotropy.
     """
-    # X = torch.tensor(X, dtype=torch.float64, device=device)
-    # center = torch.tensor(center, dtype=torch.float64, device=device).unsqueeze(0)
     center = torch.stack(center).unsqueeze(0).to(device)
     scaling = torch.tensor(scaling, dtype=torch.float64, device=device)
     angle = torch.tensor(angle, dtype=torch.float64, device=device) * torch.pi / 180
@@ -505,25 +503,6 @@ def _initialize_variogram_model(
     # are supplied, they have been supplied as expected...
     # if variogram_model_parameters was not defined, then estimate the variogram
 
-    # solution 1
-    # result = get_gpu_memory()
-    # print("GPU memory usage before:", result / 1024)
-    # print("len d", len(d))
-    # print("shape bins", bins.shape)
-    # mask = (d.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d.unsqueeze(0) < bins[1:].unsqueeze(1))
-    # print("mask", mask.shape)
-    # lags = torch.where(mask.sum(1) > 0, (d.unsqueeze(0) * mask).sum(1) / mask.sum(1),
-    #                    torch.tensor(float('nan'), device=device))
-    # semivariance = torch.where(mask.sum(1) > 0, (g.unsqueeze(0) * mask).sum(1) / mask.sum(1),
-    #                            torch.tensor(float('nan'), device=device))
-    # non_nan_mask = ~torch.isnan(semivariance)
-    # lags = lags[non_nan_mask]
-    # semivariance = semivariance[non_nan_mask]
-    # result2 = get_gpu_memory()
-    # print("GPU memory usage after:", result2/1024)
-    # print("difference GPU: ", ((result2/1024) - (result/1024)))
-
-    # solution 2
     batch_size = 15000000  # 15M
     result = _get_gpu_memory()
 
@@ -571,33 +550,6 @@ def _initialize_variogram_model(
     lags = lags[non_nan_mask]
     semivariance = semivariance[non_nan_mask]
 
-
-
-    # slution 3
-    # indices = torch.bucketize(d, bins)
-    # valid = (indices > 0) & (indices < len(bins))
-    # indices_valid = indices[valid]
-    # d_valid = d[valid]
-    # g_valid = g[valid]
-    #
-    # lags_sum = torch.zeros(len(bins) - 1, device=device)
-    # lags_count = torch.zeros(len(bins) - 1, device=device)
-    # semivariance_sum = torch.zeros(len(bins) - 1, device=device)
-    #
-    # lags_sum.index_add_(0, indices_valid - 1, d_valid)
-    # lags_count.index_add_(0, indices_valid - 1, torch.ones_like(d_valid))
-    # semivariance_sum.index_add_(0, indices_valid - 1, g_valid)
-    #
-    # lags = torch.where(
-    #     lags_count > 0,
-    #     lags_sum / lags_count,
-    #     torch.tensor(float('nan'))
-    # )
-    # semivariance = torch.where(
-    #     lags_count > 0,
-    #     semivariance_sum / lags_count,
-    #     torch.tensor(float('nan'))
-    # )
 
     if variogram_model_parameters is not None:
         if variogram_model == "linear" and len(variogram_model_parameters) != 2:

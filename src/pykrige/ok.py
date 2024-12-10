@@ -273,13 +273,7 @@ class OrdinaryKriging:
         # problems with referencing the original passed arguments.
         # Also, values are forced to be float... in the future, might be worth
         # developing complex-number kriging (useful for vector field kriging)
-        # self.X_ORIG = np.atleast_1d(
-        #     np.squeeze(np.array(x, copy=True, dtype=np.float64))
-        # )
         self.X_ORIG = torch.tensor(x.values, dtype=torch.float64).to(device).squeeze()
-        # self.Y_ORIG = np.atleast_1d(
-        #     np.squeeze(np.array(y, copy=True, dtype=np.float64))
-        # )
         self.Y_ORIG = torch.tensor(y.values, dtype=torch.float64).to(device).squeeze()
 
         z = torch.tensor(z.values, dtype=torch.float32).to(device).squeeze()
@@ -298,8 +292,6 @@ class OrdinaryKriging:
             start_time = time()
             self.XCENTER = (self.X_ORIG.max() + self.X_ORIG.min()) / 2.0
             self.YCENTER = (self.Y_ORIG.max() + self.Y_ORIG.min()) / 2.0
-            # self.XCENTER = (np.amax(self.X_ORIG) + np.amin(self.X_ORIG)) / 2.0
-            # self.YCENTER = (np.amax(self.Y_ORIG) + np.amin(self.Y_ORIG)) / 2.0
             self.anisotropy_scaling = anisotropy_scaling
             self.anisotropy_angle = anisotropy_angle
             if self.verbose:
@@ -912,7 +904,7 @@ class OrdinaryKriging:
             ypts = grid_y.flatten()
 
         elif style == "points":
-            if xpts.numel() != ypts.numel():  # .size
+            if xpts.numel() != ypts.numel():
                 raise ValueError(
                     "xpoints and ypoints must have "
                     "same dimensions when treated as "
@@ -1035,7 +1027,6 @@ class OrdinaryKriging:
         else:
             if self.coordinates_type == "euclidean":
                 bd = torch.cdist(xy_points, xy_data, p=2)
-                # bd = cdist(xy_points, xy_data, "euclidean")
             elif self.coordinates_type == "geographic":
                 bd = core.great_circle_distance(
                     xpts[:, np.newaxis],
