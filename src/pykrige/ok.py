@@ -307,7 +307,6 @@ class OrdinaryKriging:
                 print("Adjusting data for anisotropy...")
             self.X_ADJUSTED, self.Y_ADJUSTED = _adjust_for_anisotropy(
                 torch.stack((self.X_ORIG, self.Y_ORIG), dim=1),
-                # np.vstack((self.X_ORIG, self.Y_ORIG)).T,
                 [self.XCENTER, self.YCENTER],
                 [self.anisotropy_scaling],
                 [self.anisotropy_angle],

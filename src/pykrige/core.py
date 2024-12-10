@@ -196,11 +196,7 @@ def _adjust_for_anisotropy(X, center, scaling, angle, device, is_cuda_available)
     X_adj += center
     del X, center, scaling, angle
     if is_cuda_available:
-        result = _get_gpu_memory()
-        print("result _adjust_for_anisotropy before empty cache", result / 1024)
         torch.cuda.empty_cache()
-        result = _get_gpu_memory()
-        print("result _adjust_for_anisotropy after empty cache", result / 1024)
     return X_adj
 
 def _make_variogram_parameter_list(variogram_model, variogram_model_parameters):
@@ -542,8 +538,8 @@ def _initialize_variogram_model(
     semivariance_denominators = torch.zeros(bins.size(0) - 1, device=device)
 
     for i in range(num_batches):
-        print("batch ", i)
-        start_time = time()
+        # print("batch ", i)
+        # start_time = time()
         d_batch = d[i * batch_size: (i + 1) * batch_size]
         g_batch = g[i * batch_size: (i + 1) * batch_size]
 
@@ -558,12 +554,8 @@ def _initialize_variogram_model(
         semivariance_denominators += mask_float.sum(dim=1)
         del d_batch, g_batch, mask, mask_float
         if is_cuda_available:
-            result = _get_gpu_memory()
-            print("result batch i before empty cache", result / 1024)
             torch.cuda.empty_cache()
-            result = _get_gpu_memory()
-            print("result batch i after empty cache", result / 1024)
-        print("end batch ", i, time() - start_time)
+        # print("end batch ", i, time() - start_time)
 
     lags = torch.full_like(lags_numerators, float('nan'), device=device)
     valid_lags = lags_denominators > 0
@@ -578,16 +570,6 @@ def _initialize_variogram_model(
     non_nan_mask = ~torch.isnan(semivariance)
     lags = lags[non_nan_mask]
     semivariance = semivariance[non_nan_mask]
-
-    del semivariance_numerators, semivariance_denominators, lags_numerators, lags_denominators, non_nan_mask
-    if is_cuda_available:
-        result = _get_gpu_memory()
-        print("result fin initialize before empty cache", result / 1024)
-        torch.cuda.empty_cache()
-        result = _get_gpu_memory()
-        print("result fin initialize after empty cache", result / 1024)
-    # result2 = _get_gpu_memory()
-    # print("GPU memory usage after:", result2/1024)
 
 
 
