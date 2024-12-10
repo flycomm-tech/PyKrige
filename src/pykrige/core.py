@@ -31,7 +31,6 @@ import scipy.linalg as spl
 from scipy.optimize import least_squares
 from scipy.spatial.distance import cdist, pdist, squareform
 
-
 eps = 1.0e-10  # Cutoff for comparison to zero
 
 
