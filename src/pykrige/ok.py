@@ -27,7 +27,6 @@ from time import time
 import numpy as np
 import scipy.linalg
 import torch
-from scipy.spatial.distance import cdist
 
 from . import core, variogram_models
 from .compat_gstools import validate_gstools
