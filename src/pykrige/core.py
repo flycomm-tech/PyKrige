@@ -394,17 +394,10 @@ def _batched_pdist(input_tensor, is_cuda_available):
         xi = input_tensor[i:i+batch_size]
         dij = torch.cdist(xi, input_tensor, p=2)
         distances.append(dij)
-        del xi, dij
-        if is_cuda_available:
-            result = _get_gpu_memory()
-            print("result batch pdist before empty cache", result/1024)
-            torch.cuda.empty_cache()
-            result = _get_gpu_memory()
-            print("result batch pdist after empty cache", result / 1024)
     dij_full = torch.cat(distances, dim=0)
     i_upper = torch.triu_indices(N, N, offset=1)
     pdist_batched = dij_full[i_upper[0], i_upper[1]]
-    del dij_full, i_upper
+    del dij_full, i_upper, xi, dij
     if is_cuda_available:
         torch.cuda.empty_cache()
     return pdist_batched
@@ -565,7 +558,11 @@ def _initialize_variogram_model(
         semivariance_denominators += mask_float.sum(dim=1)
         del d_batch, g_batch, mask, mask_float
         if is_cuda_available:
+            result = _get_gpu_memory()
+            print("result batch i before empty cache", result / 1024)
             torch.cuda.empty_cache()
+            result = _get_gpu_memory()
+            print("result batch i after empty cache", result / 1024)
         print("end batch ", i, time() - start_time)
 
     lags = torch.full_like(lags_numerators, float('nan'), device=device)
@@ -583,9 +580,14 @@ def _initialize_variogram_model(
     semivariance = semivariance[non_nan_mask]
 
     del semivariance_numerators, semivariance_denominators, lags_numerators, lags_denominators, non_nan_mask
-    torch.cuda.empty_cache()
-    result2 = _get_gpu_memory()
-    print("GPU memory usage after:", result2/1024)
+    if is_cuda_available:
+        result = _get_gpu_memory()
+        print("result fin initialize before empty cache", result / 1024)
+        torch.cuda.empty_cache()
+        result = _get_gpu_memory()
+        print("result fin initialize after empty cache", result / 1024)
+    # result2 = _get_gpu_memory()
+    # print("GPU memory usage after:", result2/1024)
 
 
 

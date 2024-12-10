@@ -314,12 +314,6 @@ class OrdinaryKriging:
                 self.device,
                 self.is_cuda_available
             ).T
-            if self.is_cuda_available:
-                result = _get_gpu_memory()
-                print("empty cache before anisotropy delete :", result / 1024)
-                torch.cuda.empty_cache()
-                result2 = _get_gpu_memory()
-                print("empty cache after anisotropy delete :", result2/1024)
             print("time to execute X_ADJUSTED, Y_ADJUSTED and anisotropy", time() - start_time)
         elif self.coordinates_type == "geographic":
             # Leave everything as is in geographic case.
@@ -348,12 +342,6 @@ class OrdinaryKriging:
         vp_temp = _make_variogram_parameter_list(
             self.variogram_model, variogram_parameters
         )
-        if self.is_cuda_available:
-            result = _get_gpu_memory()
-            print("result _make_variogram_parameter_list before empty cache", result / 1024)
-            torch.cuda.empty_cache()
-            result = _get_gpu_memory()
-            print("result _make_variogram_parameter_list after empty cache", result / 1024)
         try:
             (
                 self.lags,
