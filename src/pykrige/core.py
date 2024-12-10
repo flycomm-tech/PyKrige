@@ -21,6 +21,8 @@ References
 
 Copyright (c) 2015-2020, PyKrige Developers
 """
+import subprocess
+import shutil
 from time import time
 
 import torch
@@ -119,7 +121,7 @@ def euclid3_to_great_circle(euclid3_distance):
     return 180.0 - 360.0 / np.pi * np.arccos(0.5 * euclid3_distance)
 
 
-def _adjust_for_anisotropy(X, center, scaling, angle, device):
+def _adjust_for_anisotropy(X, center, scaling, angle, device, is_cuda_available):
     """Adjusts data coordinates to take into account anisotropy.
     Can also be used to take into account data scaling. Angles are CCW about
     specified axes. Scaling is applied in rotated coordinate system.
@@ -140,10 +142,9 @@ def _adjust_for_anisotropy(X, center, scaling, angle, device):
     X_adj : ndarray
         float array [n_samples, n_dim], the X array adjusted for anisotropy.
     """
-    X = torch.tensor(X, dtype=torch.float32, device=device)
-    center = torch.tensor(center, dtype=torch.float32, device=device).unsqueeze(0)
-    scaling = torch.tensor(scaling, dtype=torch.float32, device=device)
-    angle = torch.tensor(angle, dtype=torch.float32, device=device) * torch.pi / 180
+    center = torch.stack(center).unsqueeze(0).to(device)
+    scaling = torch.tensor(scaling, dtype=torch.float64, device=device)
+    angle = torch.tensor(angle, dtype=torch.float64, device=device) * torch.pi / 180
 
     X -= center
 
@@ -190,9 +191,10 @@ def _adjust_for_anisotropy(X, center, scaling, angle, device):
     X_adj = torch.mm(stretch, torch.mm(rot_tot, X.t())).t()
 
     X_adj += center
-
-    return X_adj.cpu().numpy()
-
+    del X, center, scaling, angle
+    if is_cuda_available:
+        torch.cuda.empty_cache()
+    return X_adj
 
 def _make_variogram_parameter_list(variogram_model, variogram_model_parameters):
     """Converts the user input for the variogram model parameters into the
@@ -376,6 +378,25 @@ def _make_variogram_parameter_list(variogram_model, variogram_model_parameters):
 
     return parameter_list
 
+
+def _batched_pdist(input_tensor, is_cuda_available):
+    batch_size = 1000
+    N = input_tensor.size(0)
+    distances = []
+    for i in range(0, N, batch_size):
+        xi = input_tensor[i:i+batch_size]
+        dij = torch.cdist(xi, input_tensor, p=2)
+        distances.append(dij)
+    dij_full = torch.cat(distances, dim=0)
+    i_upper = torch.triu_indices(N, N, offset=1)
+    pdist_batched = dij_full[i_upper[0], i_upper[1]]
+    del dij_full, i_upper, xi, dij
+    if is_cuda_available:
+        torch.cuda.empty_cache()
+    return pdist_batched
+
+
+
 def _initialize_variogram_model(
     X,
     y,
@@ -385,7 +406,8 @@ def _initialize_variogram_model(
     nlags,
     weight,
     coordinates_type,
-    device
+    device,
+    is_cuda_available
 ):
     """Initializes the variogram model for kriging. If user does not specify
     parameters, calls automatic variogram estimation routine.
@@ -431,10 +453,10 @@ def _initialize_variogram_model(
     # in a condensed distance vector (distance matrix flattened to a vector)
     # to calculate semivariances...
     if coordinates_type == "euclidean":
-        X = torch.tensor(X, dtype=torch.float32).to(device)
-        print("X in initialize_variogram_model")
-        d = torch.pdist(X)
-        g = 0.5 * torch.pdist(y.unsqueeze(1), p=2).pow(2)
+        start_time = time()
+        d = _batched_pdist(X, is_cuda_available)
+        g = 0.5 * _batched_pdist(y.unsqueeze(1), is_cuda_available).pow(2)
+        print("torch pdist with batch takes: ", time() - start_time)
     # geographic coordinates only accepted if the problem is 2D
     # assume X[:, 0] ('x') => lon, X[:, 1] ('y') => lat
     # old method of distance calculation is retained here...
@@ -480,39 +502,53 @@ def _initialize_variogram_model(
     # are supplied, they have been supplied as expected...
     # if variogram_model_parameters was not defined, then estimate the variogram
 
-    # mask = (d.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d.unsqueeze(0) < bins[1:].unsqueeze(1))
-    # lags = torch.where(mask.sum(1) > 0, (d.unsqueeze(0) * mask).sum(1) / mask.sum(1),
-    #                    torch.tensor(float('nan'), device=device))
-    # semivariance = torch.where(mask.sum(1) > 0, (g.unsqueeze(0) * mask).sum(1) / mask.sum(1),
-    #                            torch.tensor(float('nan'), device=device))
-    # non_nan_mask = ~torch.isnan(semivariance)
-    # lags = lags[non_nan_mask]
-    # semivariance = semivariance[non_nan_mask]
+    batch_size = 15000000  # 15M
+    result = _get_gpu_memory()
 
-    indices = torch.bucketize(d, bins)
-    valid = (indices > 0) & (indices < len(bins))
-    indices_valid = indices[valid]
-    d_valid = d[valid]
-    g_valid = g[valid]
+    print("GPU memory usage before:", result / 1024)
+    print("len d", len(d))
+    num_batches = (d.size(0) + batch_size - 1) // batch_size
+    print("num batches ", num_batches)
+    lags_numerators = torch.zeros(bins.size(0) - 1, device=device)
+    lags_denominators = torch.zeros(bins.size(0) - 1, device=device)
 
-    lags_sum = torch.zeros(len(bins) - 1, device=device)
-    lags_count = torch.zeros(len(bins) - 1, device=device)
-    semivariance_sum = torch.zeros(len(bins) - 1, device=device)
+    semivariance_numerators = torch.zeros(bins.size(0) - 1, device=device)
+    semivariance_denominators = torch.zeros(bins.size(0) - 1, device=device)
 
-    lags_sum.index_add_(0, indices_valid - 1, d_valid)
-    lags_count.index_add_(0, indices_valid - 1, torch.ones_like(d_valid))
-    semivariance_sum.index_add_(0, indices_valid - 1, g_valid)
+    for i in range(num_batches):
+        # print("batch ", i)
+        # start_time = time()
+        d_batch = d[i * batch_size: (i + 1) * batch_size]
+        g_batch = g[i * batch_size: (i + 1) * batch_size]
 
-    lags = torch.where(
-        lags_count > 0,
-        lags_sum / lags_count,
-        torch.tensor(float('nan'))
-    )
-    semivariance = torch.where(
-        lags_count > 0,
-        semivariance_sum / lags_count,
-        torch.tensor(float('nan'))
-    )
+        d_batch = d_batch.to(device)
+        g_batch = g_batch.to(device)
+
+        mask = (d_batch.unsqueeze(0) >= bins[:-1].unsqueeze(1)) & (d_batch.unsqueeze(0) < bins[1:].unsqueeze(1))
+        mask_float = mask.float()
+        lags_numerators += (d_batch.unsqueeze(0) * mask_float).sum(dim=1)
+        lags_denominators += mask_float.sum(dim=1)
+        semivariance_numerators += (g_batch.unsqueeze(0) * mask_float).sum(dim=1)
+        semivariance_denominators += mask_float.sum(dim=1)
+        del d_batch, g_batch, mask, mask_float
+        if is_cuda_available:
+            torch.cuda.empty_cache()
+        # print("end batch ", i, time() - start_time)
+
+    lags = torch.full_like(lags_numerators, float('nan'), device=device)
+    valid_lags = lags_denominators > 0
+    lags[valid_lags] = lags_numerators[valid_lags] / lags_denominators[valid_lags]
+
+    semivariance = torch.full_like(semivariance_numerators, float('nan'), device=device)
+    valid_semivariance = semivariance_denominators > 0
+    semivariance[valid_semivariance] = semivariance_numerators[valid_semivariance] / semivariance_denominators[
+        valid_semivariance]
+
+
+    non_nan_mask = ~torch.isnan(semivariance)
+    lags = lags[non_nan_mask]
+    semivariance = semivariance[non_nan_mask]
+
 
     if variogram_model_parameters is not None:
         if variogram_model == "linear" and len(variogram_model_parameters) != 2:
@@ -538,8 +574,7 @@ def _initialize_variogram_model(
             variogram_model_parameters = _calculate_variogram_model(
                 lags, semivariance, variogram_model, variogram_function, weight, device
             )
-    print(lags)
-    print(semivariance)
+
     return lags, semivariance, variogram_model_parameters
 
 
@@ -619,8 +654,8 @@ def _calculate_variogram_model(
     (psill = sill - nugget) -- setting bounds such that psill > 0 ensures that
     the sill will always be greater than the nugget...
     """
-    semivariance = torch.tensor(semivariance, dtype=torch.float32).to(device)
-    lags = torch.tensor(lags, dtype=torch.float32).to(device)
+    semivariance = torch.tensor(semivariance, dtype=torch.float64).to(device)
+    lags = torch.tensor(lags, dtype=torch.float64).to(device)
 
 
     if variogram_model == "linear":
@@ -873,3 +908,14 @@ def calcQ2(epsilon):
 def calc_cR(Q2, sigma):
     """Returns the cR statistic for the variogram fit (see [1])."""
     return Q2 * np.exp(np.sum(np.log(sigma**2)) / sigma.shape[0])
+
+
+def _get_gpu_memory() -> int:
+    if shutil.which('nvidia-smi'):
+        result = subprocess.check_output(
+            ['nvidia-smi', '--query-gpu=memory.used', '--format=csv,nounits,noheader']
+        )
+        return int(result.decode().strip())
+    else:
+        print("The command nvidia-smi is not available on this system.")
+        return 0
