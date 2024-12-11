@@ -502,7 +502,7 @@ def _initialize_variogram_model(
     # are supplied, they have been supplied as expected...
     # if variogram_model_parameters was not defined, then estimate the variogram
 
-    batch_size = 15000000  # 15M
+    batch_size = 13000000  # 13M
     result = _get_gpu_memory()
 
     print("GPU memory usage before:", result / 1024)
