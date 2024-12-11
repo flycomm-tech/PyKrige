@@ -880,6 +880,8 @@ class OrdinaryKriging:
 
         xpts = torch.tensor(xpoints.values, dtype=torch.float64).to(self.device).clone().squeeze()
         ypts = torch.tensor(ypoints.values, dtype=torch.float64).to(self.device).clone().squeeze()
+        print("xpts", xpts)
+        print("ypts", ypts)
         n = self.X_ADJUSTED.size(0)
         nx = xpts.numel()
         ny = ypts.numel()
